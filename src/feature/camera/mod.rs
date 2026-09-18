@@ -1,9 +1,10 @@
 //! Camera and background: everything about *how* the world is looked at.
 
+mod constant;
+
 use bevy::prelude::*;
 
-/// Color shown wherever nothing else is drawn.
-const BACKGROUND_COLOR: Color = Color::srgb(0.10, 0.10, 0.12);
+use constant::BACKGROUND_COLOR;
 
 /// Sets up the 2D camera and the background color.
 pub struct CameraPlugin;

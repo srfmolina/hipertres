@@ -1,14 +1,10 @@
 //! The game board: a GRID_SIZE × GRID_SIZE grid of cells.
 
+mod constant;
+
 use bevy::prelude::*;
 
-/// Number of cells per side of the board.
-const GRID_SIZE: usize = 3;
-/// Width and height of one cell, in world units (= pixels with the default camera).
-const CELL_SIZE: f32 = 150.0;
-/// Empty space between neighbouring cells.
-const CELL_GAP: f32 = 10.0;
-const CELL_COLOR: Color = Color::srgb(0.85, 0.85, 0.80);
+use constant::{CELL_COLOR, CELL_GAP, CELL_SIZE, GRID_SIZE};
 
 /// Spawns the board when the game starts.
 pub struct BoardPlugin;

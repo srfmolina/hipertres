@@ -42,15 +42,22 @@ cargo run --release
 
 ```
 src/
-├── main.rs     Builds the Bevy App and adds the plugins below
-├── camera.rs   CameraPlugin: 2D camera and background color
-└── board.rs    BoardPlugin: the 3×3 grid of cells
+├── main.rs              Builds the Bevy App: DefaultPlugins + FeaturePlugins
+└── feature/
+    ├── mod.rs           FeaturePlugins: plugin group with every feature
+    ├── camera/          CameraPlugin: 2D camera and background color
+    │   ├── mod.rs
+    │   └── constant.rs
+    └── board/           BoardPlugin: the 3×3 grid of cells
+        ├── mod.rs
+        └── constant.rs
 ```
 
-Each game feature is a Bevy `Plugin` in its own module, following the
-[official plugin guide](https://bevy.org/learn/quick-start/getting-started/plugins/).
-To add a feature, create a new module with its own plugin and register it in
-`main.rs`.
+Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
+following the [official plugin guide](https://bevy.org/learn/quick-start/getting-started/plugins/).
+The plugin lives in the folder's `mod.rs`, and the feature's tunable values in
+`constant.rs`. To add a feature, create its folder and register its plugin in
+`FeaturePlugins` (`src/feature/mod.rs`). `main.rs` doesn't change.
 
 ## Tests
 

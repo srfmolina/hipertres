@@ -3,16 +3,15 @@
 //! `main` only builds the Bevy `App` and plugs in the game's features.
 //! Each feature lives in its own module and exposes a single `Plugin`.
 
-// Declare the modules (files) that make up the game.
-// `mod board;` tells Rust to compile `src/board.rs` as the `board` module.
-mod board;
-mod camera;
+// Declare the top-level modules of the game.
+// `mod feature;` tells Rust to compile the folder `src/feature/` as the
+// `feature` module, starting from `src/feature/mod.rs`.
+mod feature;
 
 // The prelude re-exports the Bevy types you use most (App, Commands, Transform...).
 use bevy::prelude::*;
 
-use board::BoardPlugin;
-use camera::CameraPlugin;
+use crate::feature::FeaturePlugins;
 
 fn main() {
     App::new()
@@ -28,9 +27,9 @@ fn main() {
             }),
             ..default()
         }))
-        // Our own plugins. The order doesn't matter here: plugins only
-        // *register* things. Nothing runs until `.run()` is called.
-        .add_plugins((CameraPlugin, BoardPlugin))
+        // All our game features, as one plugin group (see `feature/mod.rs`).
+        // Plugins only *register* things. Nothing runs until `.run()` is called.
+        .add_plugins(FeaturePlugins)
         // Start the game loop. This call only returns when the window closes.
         .run();
 }
