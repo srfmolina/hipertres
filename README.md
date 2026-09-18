@@ -45,18 +45,25 @@ src/
 ├── main.rs              Builds the Bevy App: DefaultPlugins + FeaturePlugins
 └── feature/
     ├── mod.rs           FeaturePlugins: plugin group with every feature
+    ├── debug/           DebugPlugin: switchable diagnostics (see Debugging)
     ├── camera/          CameraPlugin: 2D camera and background color
-    │   ├── mod.rs
-    │   └── constant.rs
-    └── board/           BoardPlugin: the 3×3 grid of cells
-        ├── mod.rs
-        └── constant.rs
+    ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
+    ├── board/           BoardPlugin: the 3×3 grid (currently disabled)
+    └── sandbox/         SandboxPlugin: temporary scene with a single cell
 ```
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
 following the [official plugin guide](https://bevy.org/learn/quick-start/getting-started/plugins/).
-The plugin lives in the folder's `mod.rs`, and the feature's tunable values in
-`constant.rs`. To add a feature, create its folder and register its plugin in
+A feature folder can contain:
+
+| File          | Contents |
+|---------------|----------|
+| `mod.rs`      | The plugin, its components and systems |
+| `constant.rs` | Tunable values (sizes, colors...) |
+| `debug.rs`    | The feature's diagnostics, on its own debug channel |
+| `tests.rs`    | The feature's unit tests |
+
+To add a feature, create its folder and register its plugin in
 `FeaturePlugins` (`src/feature/mod.rs`). `main.rs` doesn't change.
 
 ## Tests
@@ -64,6 +71,34 @@ The plugin lives in the folder's `mod.rs`, and the feature's tunable values in
 ```sh
 cargo test
 ```
+
+Tests live in a `tests.rs` file next to the code they test, declared at the
+bottom of `mod.rs` with `#[cfg(test)] mod tests;`. Since `tests` is a child
+module, it can test private functions too, and it is only compiled for
+`cargo test`.
+
+## Debugging
+
+Diagnostics are grouped in **channels** that you turn on and off. All of them
+are off by default.
+
+| Channel   | Key | Logs |
+|-----------|-----|------|
+| `input`   | F1  | Raw mouse buttons and cursor position |
+| `picking` | F2  | What the pointer is over, and pointer events (Over, Press, Click) per entity |
+| `cells`   | F3  | Cell state changes (pressed, color) |
+
+Turn channels on at startup with `HIPERTRES_DEBUG`, or toggle them in game
+with their key:
+
+```sh
+HIPERTRES_DEBUG=picking,cells cargo run
+HIPERTRES_DEBUG=all cargo run
+```
+
+To add a channel, add a variant to `DebugChannel` (`src/feature/debug/mod.rs`)
+with its name and key. Then, in the feature's `debug.rs`, add systems with
+`.run_if(debug_on(DebugChannel::YourChannel))`.
 
 ## Tech stack
 

@@ -5,10 +5,13 @@
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
-// Private: nothing outside `feature` needs to reach into them directly.
-// Make one `pub` when another part of the code needs its types (e.g. `board::Cell`).
+// Private to `feature`: features can use each other (`super::cell::Cell`),
+// but code outside `feature` can't. Nothing outside needs them yet.
 mod board;
 mod camera;
+mod cell;
+mod debug;
+mod sandbox;
 
 /// Every Hipertres feature, bundled like Bevy's own `DefaultPlugins`.
 ///
@@ -19,7 +22,14 @@ pub struct FeaturePlugins;
 impl PluginGroup for FeaturePlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
+            // Diagnostics, all off unless turned on (see `debug/mod.rs`).
+            .add(debug::DebugPlugin)
             .add(camera::CameraPlugin)
+            .add(cell::CellPlugin)
             .add(board::BoardPlugin)
+            .add(sandbox::SandboxPlugin)
+            // Temporarily off while trying out cells alone in the sandbox.
+            // Delete this line to bring the board back.
+            .disable::<board::BoardPlugin>()
     }
 }
