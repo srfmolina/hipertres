@@ -148,3 +148,22 @@ first build.
 - [API docs (docs.rs)](https://docs.rs/bevy/0.19.1/bevy/)
 - [Unofficial Bevy Cheat Book](https://bevy-cheatbook.github.io/): good concept
   explanations, but some code targets older versions
+
+## License
+
+The **source code** of Hipertres is licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option. This is the same dual license used by Bevy and most of the
+Rust ecosystem.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+
+**Not covered by this license:** the name "Hipertres", its logo, and the
+game's art, music and sound assets, as they are added. They are
+© Serafín López Molina (srfmolina), all rights reserved, unless a file says
+otherwise.

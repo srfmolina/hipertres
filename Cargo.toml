@@ -2,6 +2,8 @@
 name = "hipertres"
 version = "0.1.0"
 edition = "2024"
+authors = ["Serafín López Molina (srfmolina)"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = "0.19.1"
