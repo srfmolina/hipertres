@@ -2,14 +2,14 @@
 
 use bevy::prelude::*;
 
-use super::{Board, follow_parent_turn};
+use super::{Board, BoardSystems};
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
 
 pub(super) fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
         Update,
         log_board_changes
-            .after(follow_parent_turn)
+            .after(BoardSystems::Turns)
             .run_if(debug_on(DebugChannel::Boards)),
     );
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::feature::cell::{CellPlugin, click_cell};
+use crate::feature::cell::{CellClicked, CellPlugin};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
@@ -40,11 +40,9 @@ fn cell_at(app: &mut App, board: Entity, col: usize, row: usize) -> Entity {
         .unwrap()
 }
 
-/// Simulates a left click on `cell`, then runs one frame.
+/// Clicks `cell` the way a real left click does, then runs one frame.
 fn click(app: &mut App, cell: Entity) {
-    app.world_mut()
-        .run_system_cached_with(click_cell, cell)
-        .unwrap();
+    app.world_mut().write_message(CellClicked { cell });
     app.update();
 }
 
@@ -64,14 +62,22 @@ fn is_locked(app: &App, cell: Entity) -> bool {
     *app.world().get::<Pickable>(cell).unwrap() == Pickable::IGNORE
 }
 
-fn overlay_color(app: &mut App, board: Entity) -> Option<Color> {
+fn overlay(app: &mut App, board: Entity) -> Option<Entity> {
     let world = app.world_mut();
     let children: Vec<Entity> = world.get::<Children>(board).unwrap().iter().collect();
     children
         .into_iter()
-        .filter(|&child| world.get::<WinnerOverlay>(child).is_some())
-        .map(|overlay| world.get::<Sprite>(overlay).unwrap().color)
-        .next()
+        .find(|&child| world.get::<WinnerOverlay>(child).is_some())
+}
+
+fn overlay_color(app: &mut App, board: Entity) -> Option<Color> {
+    let overlay = overlay(app, board)?;
+    Some(app.world().get::<Sprite>(overlay).unwrap().color)
+}
+
+fn overlay_visibility_of(app: &mut App, board: Entity) -> Option<Visibility> {
+    let overlay = overlay(app, board)?;
+    Some(*app.world().get::<Visibility>(overlay).unwrap())
 }
 
 #[test]
@@ -148,6 +154,25 @@ fn end_of_turn_locks_the_pressed_cell_and_keeps_its_color() {
     assert!(!is_locked(&app, second));
 }
 
+/// Presses the top row with `color`, one cell per turn, and ends the turn
+/// after the last one, so the board is won by `color`.
+fn win_top_row(app: &mut App, parent: Entity, board: Entity, color: Color) {
+    for col in 0..3 {
+        let cell = cell_at(app, board, col, 0);
+        click(app, cell);
+        next_turn(app, parent, color);
+    }
+}
+
+fn winner(app: &App, board: Entity) -> Option<Color> {
+    app.world().get::<Board>(board).unwrap().winner()
+}
+
+fn set_control(app: &mut App, board: Entity, control: BoardControl) {
+    app.world_mut().entity_mut(board).insert(control);
+    app.update();
+}
+
 #[test]
 fn three_in_a_row_wins_only_when_the_turn_ends() {
     let (mut app, parent, board) = setup(RED);
@@ -159,13 +184,84 @@ fn three_in_a_row_wins_only_when_the_turn_ends() {
             next_turn(&mut app, parent, RED);
         }
     }
-    assert_eq!(app.world().get::<Board>(board).unwrap().winner(), None);
+    assert_eq!(winner(&app, board), None);
 
     next_turn(&mut app, parent, BLUE);
-    assert_eq!(app.world().get::<Board>(board).unwrap().winner(), Some(RED));
+    assert_eq!(winner(&app, board), Some(RED));
     assert_eq!(overlay_color(&mut app, board), Some(RED));
+}
+
+#[test]
+fn won_board_stays_clickable_until_its_parent_says_otherwise() {
+    let (mut app, parent, board) = setup(RED);
+    win_top_row(&mut app, parent, board, RED);
     let untouched = cell_at(&mut app, board, 2, 2);
+    assert!(!is_locked(&app, untouched));
+
+    set_control(
+        &mut app,
+        board,
+        BoardControl {
+            clickable: false,
+            ..default()
+        },
+    );
     assert!(is_locked(&app, untouched));
+}
+
+#[test]
+fn making_a_board_clickable_again_keeps_pressed_cells_locked() {
+    let (mut app, parent, board) = setup(RED);
+    let pressed_earlier = cell_at(&mut app, board, 0, 0);
+    let untouched = cell_at(&mut app, board, 1, 1);
+    click(&mut app, pressed_earlier);
+    next_turn(&mut app, parent, BLUE);
+
+    let unclickable = BoardControl {
+        clickable: false,
+        ..default()
+    };
+    set_control(&mut app, board, unclickable);
+    set_control(&mut app, board, BoardControl::default());
+
+    assert!(is_locked(&app, pressed_earlier));
+    assert!(!is_locked(&app, untouched));
+}
+
+#[test]
+fn parent_can_hide_the_winner_overlay() {
+    let (mut app, parent, board) = setup(RED);
+    let hidden = BoardControl {
+        show_winner_overlay: false,
+        ..default()
+    };
+    set_control(&mut app, board, hidden);
+    win_top_row(&mut app, parent, board, RED);
+
+    assert_eq!(winner(&app, board), Some(RED));
+    assert_eq!(
+        overlay_visibility_of(&mut app, board),
+        Some(Visibility::Hidden)
+    );
+
+    set_control(&mut app, board, BoardControl::default());
+    assert_eq!(
+        overlay_visibility_of(&mut app, board),
+        Some(Visibility::Inherited)
+    );
+}
+
+#[test]
+fn clear_turn_press_unpresses_the_current_cell() {
+    let (mut app, _, board) = setup(RED);
+    let cell = cell_at(&mut app, board, 0, 0);
+    click(&mut app, cell);
+
+    app.world_mut().trigger(ClearTurnPress { entity: board });
+    app.update();
+
+    assert_eq!(pressed(&app, cell), None);
+    assert_eq!(app.world().get::<Board>(board).unwrap().current(), None);
 }
 
 #[test]
@@ -203,4 +299,37 @@ fn center_cell_is_at_board_center() {
 fn top_left_cell_is_up_and_left() {
     let step = CELL_SIZE + CELL_GAP;
     assert_eq!(cell_position(0, 0), Vec2::new(-step, step));
+}
+
+#[test]
+fn board_reports_full_when_every_cell_is_pressed() {
+    let (mut app, parent, board) = setup(RED);
+    for row in 0..GRID_SIZE {
+        for col in 0..GRID_SIZE {
+            assert!(!app.world().get::<Board>(board).unwrap().is_full());
+            let cell = cell_at(&mut app, board, col, row);
+            click(&mut app, cell);
+            next_turn(&mut app, parent, RED);
+        }
+    }
+    assert!(app.world().get::<Board>(board).unwrap().is_full());
+}
+
+/// The win check must see a cell pressed in the same frame the turn ends.
+#[test]
+fn win_check_sees_a_click_from_the_same_frame() {
+    let (mut app, parent, board) = setup(RED);
+    for col in 0..2 {
+        let cell = cell_at(&mut app, board, col, 0);
+        click(&mut app, cell);
+        next_turn(&mut app, parent, RED);
+    }
+    let last = cell_at(&mut app, board, 2, 0);
+
+    // Click and end the turn in one single frame.
+    app.world_mut().write_message(CellClicked { cell: last });
+    app.world_mut().get_mut::<Turn>(parent).unwrap().number += 1;
+    app.update();
+
+    assert_eq!(winner(&app, board), Some(RED));
 }

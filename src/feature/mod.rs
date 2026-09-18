@@ -11,7 +11,8 @@ mod board;
 mod camera;
 mod cell;
 mod debug;
-mod sandbox;
+mod game;
+mod hyperboard;
 
 /// Every Hipertres feature, bundled like Bevy's own `DefaultPlugins`.
 ///
@@ -27,6 +28,7 @@ impl PluginGroup for FeaturePlugins {
             .add(camera::CameraPlugin)
             .add(cell::CellPlugin)
             .add(board::BoardPlugin)
-            .add(sandbox::SandboxPlugin)
+            .add(hyperboard::HyperboardPlugin)
+            .add(game::GamePlugin)
     }
 }

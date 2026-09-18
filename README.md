@@ -3,8 +3,10 @@
 A 2D board game written in [Rust](https://www.rust-lang.org/) with the
 [Bevy](https://bevy.org/) game engine.
 
-> **Status:** early setup. The game currently opens a window and draws an
-> empty 3×3 board. There is no gameplay yet.
+> **Status:** early development. A 3×3 hyperboard of 3×3 boards for two
+> players: press a cell, end the turn with **Space** (you can't pass without
+> pressing a cell). Win three boards in a row to win the game. Won and full
+> boards can't be played anymore.
 
 ## Requirements
 
@@ -49,7 +51,8 @@ src/
     ├── camera/          CameraPlugin: 2D camera and background color
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
     ├── board/           BoardPlugin: 3×3 cells, one press per turn, three in a row
-    └── sandbox/         SandboxPlugin: temporary scene, one board (Space ends the turn)
+    ├── hyperboard/      HyperboardPlugin: 3×3 boards, players, turns, game winner
+    └── game/            GamePlugin: spawns the hyperboard at startup
 ```
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
@@ -65,6 +68,15 @@ A feature folder can contain:
 
 To add a feature, create its folder and register its plugin in
 `FeaturePlugins` (`src/feature/mod.rs`). `main.rs` doesn't change.
+
+### Order of a frame
+
+Every game step runs in a named Bevy system set, and the order between them
+is guaranteed: clicks are applied to cells, then the one-press-per-turn rules
+run, then the end of turn, then **boards** check their wins, then the
+**hyperboard** checks its win. The full list is in the docs of
+`src/feature/hyperboard/mod.rs`, and tests check that a click, a board win and
+a game win all resolve in the same frame.
 
 ## Tests
 
@@ -88,6 +100,7 @@ are off by default.
 | `picking` | F2  | What the pointer is over, and pointer events (Over, Press, Click) per entity |
 | `cells`   | F3  | Cell state changes (pressed, color) |
 | `boards`  | F4  | Board state changes (turn, pressed cell, winner) |
+| `hyperboard` | F5 | Hyperboard state changes (turn, player, active board, winner) |
 
 Turn channels on at startup with `HIPERTRES_DEBUG`, or toggle them in game
 with their key:

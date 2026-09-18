@@ -1,17 +1,15 @@
 use super::*;
 
-/// An App with only the color system: no window or rendering needed.
+/// An App with only the cell feature: no window or rendering needed.
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_systems(PostUpdate, update_cell_colors);
+    app.add_plugins(CellPlugin);
     app
 }
 
-/// Simulates a left click on `cell`, then runs one frame.
+/// Clicks `cell` the way a real left click does, then runs one frame.
 fn click(app: &mut App, cell: Entity) {
-    app.world_mut()
-        .run_system_cached_with(click_cell, cell)
-        .unwrap();
+    app.world_mut().write_message(CellClicked { cell });
     app.update();
 }
 
