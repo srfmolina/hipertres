@@ -1,59 +1,36 @@
+//! Entry point of Hipertres.
+//!
+//! `main` only builds the Bevy `App` and plugs in the game's features.
+//! Each feature lives in its own module and exposes a single `Plugin`.
+
+// Declare the modules (files) that make up the game.
+// `mod board;` tells Rust to compile `src/board.rs` as the `board` module.
+mod board;
+mod camera;
+
+// The prelude re-exports the Bevy types you use most (App, Commands, Transform...).
 use bevy::prelude::*;
 
-const GRID_SIZE: usize = 3;
-const CELL_SIZE: f32 = 150.0;
-const CELL_GAP: f32 = 10.0;
-
-const BACKGROUND_COLOR: Color = Color::srgb(0.10, 0.10, 0.12);
-const CELL_COLOR: Color = Color::srgb(0.85, 0.85, 0.80);
-
-/// A single cell of the board, identified by its column and row.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-struct Cell {
-    col: usize,
-    row: usize,
-}
+use board::BoardPlugin;
+use camera::CameraPlugin;
 
 fn main() {
     App::new()
+        // DefaultPlugins is Bevy's built-in bundle: window, rendering, input,
+        // assets, audio... `.set(...)` replaces the settings of one plugin in
+        // the bundle. Here we configure the main window.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Hipertres".into(),
                 resolution: (800, 800).into(),
+                // `..default()` fills every other field with its default value.
                 ..default()
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_systems(Startup, setup)
+        // Our own plugins. The order doesn't matter here: plugins only
+        // *register* things. Nothing runs until `.run()` is called.
+        .add_plugins((CameraPlugin, BoardPlugin))
+        // Start the game loop. This call only returns when the window closes.
         .run();
-}
-
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.spawn(Camera2d);
-
-    let cell_mesh = meshes.add(Rectangle::new(CELL_SIZE, CELL_SIZE));
-    let cell_material = materials.add(CELL_COLOR);
-
-    // Center the grid on the origin, where the camera looks.
-    let step = CELL_SIZE + CELL_GAP;
-    let offset = (GRID_SIZE as f32 - 1.0) * step / 2.0;
-
-    for row in 0..GRID_SIZE {
-        for col in 0..GRID_SIZE {
-            let x = col as f32 * step - offset;
-            // Row 0 is the top row; world Y points up.
-            let y = offset - row as f32 * step;
-            commands.spawn((
-                Cell { col, row },
-                Mesh2d(cell_mesh.clone()),
-                MeshMaterial2d(cell_material.clone()),
-                Transform::from_xyz(x, y, 0.0),
-            ));
-        }
-    }
 }

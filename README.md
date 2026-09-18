@@ -38,6 +38,26 @@ For an optimized build:
 cargo run --release
 ```
 
+## Project structure
+
+```
+src/
+├── main.rs     Builds the Bevy App and adds the plugins below
+├── camera.rs   CameraPlugin: 2D camera and background color
+└── board.rs    BoardPlugin: the 3×3 grid of cells
+```
+
+Each game feature is a Bevy `Plugin` in its own module, following the
+[official plugin guide](https://bevy.org/learn/quick-start/getting-started/plugins/).
+To add a feature, create a new module with its own plugin and register it in
+`main.rs`.
+
+## Tests
+
+```sh
+cargo test
+```
+
 ## Tech stack
 
 | What        | Version |
