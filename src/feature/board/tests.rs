@@ -1,5 +1,5 @@
 use super::*;
-use crate::feature::cell::{CellClicked, CellPlugin};
+use crate::feature::cell::{CellClicked, CellPlugin, Muted, mute};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
@@ -332,4 +332,38 @@ fn win_check_sees_a_click_from_the_same_frame() {
     app.update();
 
     assert_eq!(winner(&app, board), Some(RED));
+}
+
+#[test]
+fn end_of_turn_records_the_position_of_the_move() {
+    let (mut app, parent, board) = setup(RED);
+    let cell = cell_at(&mut app, board, 2, 1);
+    click(&mut app, cell);
+    assert_eq!(app.world().get::<Board>(board).unwrap().last_move(), None);
+
+    next_turn(&mut app, parent, BLUE);
+    assert_eq!(
+        app.world().get::<Board>(board).unwrap().last_move(),
+        Some(GridPosition { col: 2, row: 1 })
+    );
+}
+
+#[test]
+fn unclickable_board_mutes_its_cells_and_winner_square() {
+    let (mut app, parent, board) = setup(RED);
+    win_top_row(&mut app, parent, board, RED);
+    let cell = cell_at(&mut app, board, 2, 2);
+    assert_eq!(app.world().get::<Muted>(cell), Some(&Muted(false)));
+
+    let unclickable = BoardControl {
+        clickable: false,
+        ..default()
+    };
+    set_control(&mut app, board, unclickable);
+    assert_eq!(app.world().get::<Muted>(cell), Some(&Muted(true)));
+    assert_eq!(overlay_color(&mut app, board), Some(mute(RED)));
+
+    set_control(&mut app, board, BoardControl::default());
+    assert_eq!(app.world().get::<Muted>(cell), Some(&Muted(false)));
+    assert_eq!(overlay_color(&mut app, board), Some(RED));
 }

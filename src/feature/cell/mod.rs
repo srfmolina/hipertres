@@ -9,7 +9,7 @@ mod debug;
 use bevy::prelude::*;
 
 pub use constant::CELL_SIZE;
-use constant::{DEFAULT_PRESSED_COLOR, UNPRESSED_COLOR};
+use constant::{DEFAULT_PRESSED_COLOR, MUTE_AMOUNT, MUTE_TARGET, UNPRESSED_COLOR};
 
 /// Makes every `Cell` entity clickable and keeps its color in sync.
 pub struct CellPlugin;
@@ -60,18 +60,34 @@ pub struct CellClicked {
 ///   To make a cell unclickable, set it to `Pickable::IGNORE`: picking then
 ///   skips the cell completely, so it never receives clicks.
 /// - `Name`: a label for debugging, so logs say "Cell 374v0" instead of "374v0".
+/// - `Muted`: whether the cell is drawn with muted colors (not muted by default).
 ///
 /// So `commands.spawn(Cell::default())` gives a complete, visible, clickable cell.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq)]
 #[require(
     Sprite = Sprite::from_color(UNPRESSED_COLOR, Vec2::splat(CELL_SIZE)),
     Pickable,
-    Name = Name::new("Cell")
+    Name = Name::new("Cell"),
+    Muted
 )]
 pub struct Cell {
     /// `None` when unpressed. `Some(color)` when pressed, remembering the
     /// color it was pressed with, even if the parent's `PressedColor` changes later.
     pub pressed: Option<Color>,
+}
+
+/// Whether a cell is drawn with muted colors (see `mute`). Its parent (the
+/// board) sets it, e.g. to show that the cell can't be played right now.
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Muted(pub bool);
+
+/// A muted version of `color`: mixed toward a neutral gray, so it looks
+/// desaturated and dimmer. Works for white too (plain desaturation would
+/// leave white unchanged, since white has no saturation).
+///
+/// `mix` comes from Bevy's `Mix` trait, in the prelude.
+pub fn mute(color: Color) -> Color {
+    color.mix(&MUTE_TARGET, MUTE_AMOUNT)
 }
 
 /// The color a cell turns when pressed.
@@ -106,15 +122,20 @@ fn send_cell_clicks(click: On<Pointer<Click>>, mut clicks: MessageWriter<CellCli
 /// system last read them.
 fn apply_clicks(
     mut clicks: MessageReader<CellClicked>,
-    mut cells: Query<(&mut Cell, Option<&ChildOf>)>,
+    mut cells: Query<(&mut Cell, &Pickable, Option<&ChildOf>)>,
     pressed_colors: Query<&PressedColor>,
 ) {
     for click in clicks.read() {
         // `get_mut` returns `Err` when the entity has no `Cell`: the click
         // was on something else (e.g. the window). Ignore it.
-        let Ok((mut cell, child_of)) = cells.get_mut(click.cell) else {
+        let Ok((mut cell, pickable, child_of)) = cells.get_mut(click.cell) else {
             continue;
         };
+        // An unclickable cell (`Pickable::IGNORE`) never gets real clicks
+        // from picking. Clicks sent as messages follow the same rule.
+        if !pickable.is_hoverable {
+            continue;
+        }
         cell.pressed = match cell.pressed {
             Some(_) => None,
             // `ChildOf` exists only if the cell has a parent. Ask the parent
@@ -128,6 +149,9 @@ fn apply_clicks(
     }
 }
 
+/// A query filter matching cells whose `Cell` *or* `Muted` changed.
+type CellOrMutedChanged = Or<(Changed<Cell>, Changed<Muted>)>;
+
 /// Paints each cell according to its state.
 ///
 /// Keeping the *state* (`Cell`, changed by clicks and by the board) separate
@@ -137,9 +161,10 @@ fn apply_clicks(
 /// `Changed<Cell>` is a *query filter*: the query only returns cells whose
 /// `Cell` component changed since this system last ran, so idle cells cost
 /// nothing. Newly spawned cells count as changed too.
-fn update_cell_colors(mut cells: Query<(&Cell, &mut Sprite), Changed<Cell>>) {
-    for (cell, mut sprite) in &mut cells {
-        sprite.color = cell.pressed.unwrap_or(UNPRESSED_COLOR);
+fn update_cell_colors(mut cells: Query<(&Cell, &Muted, &mut Sprite), CellOrMutedChanged>) {
+    for (cell, muted, mut sprite) in &mut cells {
+        let color = cell.pressed.unwrap_or(UNPRESSED_COLOR);
+        sprite.color = if muted.0 { mute(color) } else { color };
     }
 }
 

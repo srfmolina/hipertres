@@ -25,10 +25,11 @@ fn log_hyperboard_changes(
 ) {
     for (entity, hyperboard, turn) in &hyperboards {
         info!(
-            "[hyperboard] Hyperboard {entity} turn={} player={:?} active_board={:?} winner={:?}",
+            "[hyperboard] Hyperboard {entity} turn={} player={:?} active_board={:?} next_board={:?} winner={:?}",
             turn.number,
             turn.color.to_srgba(),
             hyperboard.active_board,
+            hyperboard.next_board,
             hyperboard.winner().map(|c| c.to_srgba())
         );
     }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::feature::board::BoardPlugin;
-use crate::feature::cell::{Cell, CellClicked, CellPlugin};
+use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
@@ -63,6 +63,43 @@ fn play(app: &mut App, hyperboard: Entity, cell: Entity) {
     end_turn_now(app, hyperboard);
 }
 
+/// Lets the current player play in any board that isn't won or full, ignoring
+/// where the last move sent them. For tests about other rules.
+fn allow_any_board(app: &mut App, hyperboard: Entity) {
+    app.world_mut()
+        .get_mut::<Hyperboard>(hyperboard)
+        .unwrap()
+        .next_board = None;
+    app.update();
+}
+
+/// Like `play`, but in any board (see `allow_any_board`).
+fn play_anywhere(app: &mut App, hyperboard: Entity, cell: Entity) {
+    allow_any_board(app, hyperboard);
+    play(app, hyperboard, cell);
+}
+
+fn next_board(app: &App, hyperboard: Entity) -> Option<GridPosition> {
+    app.world()
+        .get::<Hyperboard>(hyperboard)
+        .unwrap()
+        .next_board
+}
+
+/// Positions of the boards that can be clicked right now.
+fn clickable_boards(app: &mut App, hyperboard: Entity) -> Vec<(usize, usize)> {
+    let mut positions = Vec::new();
+    for row in 0..GRID_SIZE {
+        for col in 0..GRID_SIZE {
+            let board = child_at(app, hyperboard, col, row);
+            if clickable(app, board) {
+                positions.push((col, row));
+            }
+        }
+    }
+    positions
+}
+
 fn turn(app: &App, hyperboard: Entity) -> Turn {
     *app.world().get::<Turn>(hyperboard).unwrap()
 }
@@ -84,8 +121,26 @@ fn harmless_cell(app: &mut App, hyperboard: Entity, move_number: usize) -> Entit
     child_at(app, board, col, row)
 }
 
+/// Moves that fill a board with no three in a row, alternating the first
+/// and second player:
+///   R B R
+///   R B B
+///   B R R
+const DRAW_MOVES: [(usize, usize); 9] = [
+    (0, 0), // first player
+    (1, 0), // second player
+    (2, 0),
+    (1, 1),
+    (0, 1),
+    (2, 1),
+    (1, 2),
+    (0, 2),
+    (2, 2), // first player
+];
+
 /// With two players, makes the first player win `board` along its top row,
-/// while the second player makes harmless moves. It must be the first
+/// while the second player makes harmless moves. Moves ignore where the last
+/// move sent the player (see `allow_any_board`). It must be the first
 /// player's turn. `harmless_moves` counts the second player's moves so far.
 fn first_player_wins_board(
     app: &mut App,
@@ -95,10 +150,10 @@ fn first_player_wins_board(
 ) {
     for col in 0..GRID_SIZE {
         let cell = child_at(app, board, col, 0);
-        play(app, hyperboard, cell);
+        play_anywhere(app, hyperboard, cell);
         let reply = harmless_cell(app, hyperboard, *harmless_moves);
         *harmless_moves += 1;
-        play(app, hyperboard, reply);
+        play_anywhere(app, hyperboard, reply);
     }
 }
 
@@ -138,7 +193,7 @@ fn turns_go_through_the_players_in_order() {
 
     for number in 0..3 {
         let cell = harmless_cell(&mut app, hyperboard, number);
-        play(&mut app, hyperboard, cell);
+        play_anywhere(&mut app, hyperboard, cell);
         if number == 0 {
             assert_eq!(
                 turn(&app, hyperboard),
@@ -161,8 +216,10 @@ fn turns_go_through_the_players_in_order() {
 #[test]
 fn cells_get_pressed_with_the_current_players_color() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
-    let first_move = harmless_cell(&mut app, hyperboard, 0);
+    let center = child_at(&mut app, hyperboard, 1, 1);
+    let first_move = child_at(&mut app, center, 0, 0);
     play(&mut app, hyperboard, first_move);
+    // The first move (top-left cell) sends blue to the top-left board.
     let board = child_at(&mut app, hyperboard, 0, 0);
     let cell = child_at(&mut app, board, 0, 0);
 
@@ -173,6 +230,7 @@ fn cells_get_pressed_with_the_current_players_color() {
 #[test]
 fn only_one_cell_can_be_pressed_per_turn_in_the_whole_hyperboard() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    allow_any_board(&mut app, hyperboard);
     let first_board = child_at(&mut app, hyperboard, 0, 0);
     let second_board = child_at(&mut app, hyperboard, 2, 2);
     let first = child_at(&mut app, first_board, 1, 1);
@@ -192,6 +250,8 @@ fn won_boards_become_unclickable_and_the_rest_stay_clickable() {
     let other = child_at(&mut app, hyperboard, 1, 1);
 
     first_player_wins_board(&mut app, hyperboard, won, &mut 0);
+    // Free choice: every board is allowed, but won ones stay unclickable.
+    allow_any_board(&mut app, hyperboard);
 
     assert_eq!(app.world().get::<Board>(won).unwrap().winner(), Some(RED));
     assert!(!clickable(&app, won));
@@ -234,11 +294,19 @@ fn turns_stop_once_the_game_is_won() {
 #[test]
 fn ending_the_turn_clears_the_active_board() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
-    let board = child_at(&mut app, hyperboard, 0, 0);
+    let board = child_at(&mut app, hyperboard, 1, 1);
     let cell = child_at(&mut app, board, 0, 0);
     click(&mut app, cell);
+    assert_eq!(
+        app.world()
+            .get::<Hyperboard>(hyperboard)
+            .unwrap()
+            .active_board,
+        Some(board)
+    );
 
     end_turn_now(&mut app, hyperboard);
+    assert_eq!(turn(&app, hyperboard).number, 2);
     let state = app.world().get::<Hyperboard>(hyperboard).unwrap();
     assert_eq!(state.active_board, None);
 }
@@ -251,42 +319,30 @@ fn a_turn_cannot_end_without_a_move() {
     assert_eq!(turn(&app, hyperboard).number, 1);
 
     // Pressing a cell and unpressing it again is not a move either.
-    let cell = harmless_cell(&mut app, hyperboard, 0);
+    let center = child_at(&mut app, hyperboard, 1, 1);
+    let cell = child_at(&mut app, center, 0, 0);
     click(&mut app, cell);
+    assert_eq!(pressed(&app, cell), Some(RED));
     click(&mut app, cell);
     end_turn_now(&mut app, hyperboard);
     assert_eq!(turn(&app, hyperboard).number, 1);
 }
 
 #[test]
-fn full_board_without_winner_is_disabled_but_looks_the_same() {
+fn full_board_without_winner_is_disabled() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
     let board = child_at(&mut app, hyperboard, 1, 1);
-    // A draw, filled alternating red and blue:
-    //   R B R
-    //   R B B
-    //   B R R
-    let moves = [
-        (0, 0), // red
-        (1, 0), // blue
-        (2, 0),
-        (1, 1),
-        (0, 1),
-        (2, 1),
-        (1, 2),
-        (0, 2),
-        (2, 2), // red
-    ];
-    for (col, row) in moves {
+    for (col, row) in DRAW_MOVES {
         let cell = child_at(&mut app, board, col, row);
-        play(&mut app, hyperboard, cell);
+        play_anywhere(&mut app, hyperboard, cell);
     }
 
     let state = app.world().get::<Board>(board).unwrap();
     assert!(state.is_full());
     assert_eq!(state.winner(), None);
     assert!(!clickable(&app, board));
-    // It looks the same: cells keep their colors, and no square covers them.
+    // Cells keep their colors (drawn muted, like every disabled board), and
+    // no square covers them.
     let top_left = child_at(&mut app, board, 0, 0);
     assert_eq!(pressed(&app, top_left), Some(RED));
     let children: Vec<Entity> = app.world().get::<Children>(board).unwrap().iter().collect();
@@ -311,11 +367,12 @@ fn click_board_win_and_game_win_resolve_in_the_same_frame() {
     let last_board = child_at(&mut app, hyperboard, 2, 0);
     for col in 0..2 {
         let cell = child_at(&mut app, last_board, col, 0);
-        play(&mut app, hyperboard, cell);
+        play_anywhere(&mut app, hyperboard, cell);
         let reply = harmless_cell(&mut app, hyperboard, harmless_moves);
         harmless_moves += 1;
-        play(&mut app, hyperboard, reply);
+        play_anywhere(&mut app, hyperboard, reply);
     }
+    allow_any_board(&mut app, hyperboard);
 
     // The winning click and the end of the turn, in one single frame.
     let last_cell = child_at(&mut app, last_board, 2, 0);
@@ -333,4 +390,139 @@ fn click_board_win_and_game_win_resolve_in_the_same_frame() {
         app.world().get::<Hyperboard>(hyperboard).unwrap().winner(),
         Some(RED)
     );
+}
+
+#[test]
+fn first_turn_is_played_in_the_center_board() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+
+    assert_eq!(clickable_boards(&mut app, hyperboard), vec![(1, 1)]);
+    let center = child_at(&mut app, hyperboard, 1, 1);
+    let corner = child_at(&mut app, hyperboard, 0, 0);
+    let muted = |app: &mut App, board: Entity| {
+        let cell = child_at(app, board, 1, 1);
+        app.world().get::<Muted>(cell).unwrap().0
+    };
+    assert!(!muted(&mut app, center));
+    assert!(muted(&mut app, corner));
+}
+
+#[test]
+fn clicks_outside_the_allowed_board_are_ignored() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    let corner = child_at(&mut app, hyperboard, 0, 0);
+    let cell = child_at(&mut app, corner, 1, 1);
+
+    click(&mut app, cell);
+    assert_eq!(pressed(&app, cell), None);
+}
+
+#[test]
+fn the_pressed_cell_sends_the_next_player_to_the_matching_board() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    let center = child_at(&mut app, hyperboard, 1, 1);
+
+    // Red presses the top-right cell of the center board...
+    let cell = child_at(&mut app, center, 2, 0);
+    play(&mut app, hyperboard, cell);
+
+    // ...so blue must play in the top-right board.
+    assert_eq!(
+        next_board(&app, hyperboard),
+        Some(GridPosition { col: 2, row: 0 })
+    );
+    assert_eq!(clickable_boards(&mut app, hyperboard), vec![(2, 0)]);
+
+    // Blue presses the bottom-left cell there: red goes to the bottom-left board.
+    let top_right = child_at(&mut app, hyperboard, 2, 0);
+    let cell = child_at(&mut app, top_right, 0, 2);
+    play(&mut app, hyperboard, cell);
+    assert_eq!(clickable_boards(&mut app, hyperboard), vec![(0, 2)]);
+}
+
+#[test]
+fn being_sent_to_a_won_board_allows_any_open_board() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    let won = child_at(&mut app, hyperboard, 0, 0);
+    first_player_wins_board(&mut app, hyperboard, won, &mut 0);
+
+    // Red plays the top-left cell of the center board: that sends blue to
+    // the top-left board, which is won.
+    let center = child_at(&mut app, hyperboard, 1, 1);
+    let cell = child_at(&mut app, center, 0, 0);
+    play_anywhere(&mut app, hyperboard, cell);
+
+    assert_eq!(next_board(&app, hyperboard), None);
+    let open: Vec<_> = clickable_boards(&mut app, hyperboard);
+    assert_eq!(open.len(), 8);
+    assert!(!open.contains(&(0, 0)));
+}
+
+#[test]
+fn being_sent_to_a_full_board_allows_any_open_board() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    let full = child_at(&mut app, hyperboard, 1, 1);
+    for (col, row) in DRAW_MOVES {
+        let cell = child_at(&mut app, full, col, row);
+        play_anywhere(&mut app, hyperboard, cell);
+    }
+    assert!(app.world().get::<Board>(full).unwrap().is_full());
+
+    // Blue plays the center cell of the top-left board: that sends red to the
+    // center board, which is full.
+    let corner = child_at(&mut app, hyperboard, 0, 0);
+    let cell = child_at(&mut app, corner, 1, 1);
+    play_anywhere(&mut app, hyperboard, cell);
+
+    assert_eq!(next_board(&app, hyperboard), None);
+    let open = clickable_boards(&mut app, hyperboard);
+    assert_eq!(open.len(), 8);
+    assert!(!open.contains(&(1, 1)));
+}
+
+/// The move that wins a board can also send the next player to that same
+/// board: it must count as won already.
+#[test]
+fn a_move_that_wins_the_board_it_points_to_allows_any_open_board() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    let board = child_at(&mut app, hyperboard, 0, 0);
+    for (harmless_move, col) in (1..3).enumerate() {
+        let cell = child_at(&mut app, board, col, 0);
+        play_anywhere(&mut app, hyperboard, cell);
+        let reply = harmless_cell(&mut app, hyperboard, harmless_move);
+        play_anywhere(&mut app, hyperboard, reply);
+    }
+
+    // Red completes the top row with the top-left cell of the top-left board.
+    let cell = child_at(&mut app, board, 0, 0);
+    play_anywhere(&mut app, hyperboard, cell);
+
+    assert_eq!(app.world().get::<Board>(board).unwrap().winner(), Some(RED));
+    assert_eq!(next_board(&app, hyperboard), None);
+}
+
+/// Counts, frame by frame, how often `Changed<Hyperboard>` matched.
+#[derive(Resource, Default)]
+struct HyperboardChanges(usize);
+
+/// Systems and debug logs react to `Changed<Hyperboard>`, so a frame where
+/// nothing happens must not mark it as changed.
+#[test]
+fn idle_frames_do_not_mark_the_hyperboard_as_changed() {
+    let (mut app, _) = setup(vec![RED, BLUE]);
+    // A system sees changes the way the game's systems do: "changed since
+    // this system last ran". It runs in `Last`, after everything else.
+    app.init_resource::<HyperboardChanges>().add_systems(
+        Last,
+        |changed: Query<(), Changed<Hyperboard>>, mut count: ResMut<HyperboardChanges>| {
+            count.0 += changed.iter().count();
+        },
+    );
+    app.update(); // First run: everything counts as changed, since it's new.
+    app.world_mut().resource_mut::<HyperboardChanges>().0 = 0;
+
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<HyperboardChanges>().0, 0);
 }

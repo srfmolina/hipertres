@@ -88,3 +88,39 @@ fn pressed_cell_keeps_its_color_when_parent_color_changes() {
 
     assert_eq!(cell(&app, entity).pressed, Some(red));
 }
+
+#[test]
+fn muted_cell_is_drawn_with_muted_colors() {
+    let mut app = test_app();
+    let entity = app.world_mut().spawn(Cell::default()).id();
+    click(&mut app, entity);
+
+    app.world_mut().entity_mut(entity).insert(Muted(true));
+    app.update();
+    assert_eq!(color_of(&app, entity), mute(DEFAULT_PRESSED_COLOR));
+
+    app.world_mut().entity_mut(entity).insert(Muted(false));
+    app.update();
+    assert_eq!(color_of(&app, entity), DEFAULT_PRESSED_COLOR);
+}
+
+#[test]
+fn mute_makes_white_darker_and_colors_less_saturated() {
+    let white = mute(Color::WHITE).to_srgba();
+    assert!(white.red < 1.0);
+
+    let blue = DEFAULT_PRESSED_COLOR;
+    assert!(mute(blue).saturation() < blue.saturation());
+}
+
+#[test]
+fn clicks_on_an_unclickable_cell_are_ignored() {
+    let mut app = test_app();
+    let entity = app
+        .world_mut()
+        .spawn((Cell::default(), Pickable::IGNORE))
+        .id();
+
+    click(&mut app, entity);
+    assert_eq!(cell(&app, entity).pressed, None);
+}

@@ -10,14 +10,15 @@
 //!   winning color over its cells.
 //!
 //! The parent controls each board through its `BoardControl`: whether the
-//! board can be clicked, and whether it shows its winner square.
+//! board can be clicked, and whether it shows its winner square. A board that
+//! can't be clicked is drawn with muted colors.
 
 mod constant;
 mod debug;
 
 use bevy::prelude::*;
 
-use super::cell::{CELL_SIZE, Cell, CellSystems, PressedColor};
+use super::cell::{CELL_SIZE, Cell, CellSystems, Muted, PressedColor, mute};
 pub use constant::{BOARD_SIZE, GRID_SIZE};
 use constant::{CELL_GAP, OVERLAY_Z};
 
@@ -118,6 +119,8 @@ pub struct Board {
     winner: Option<Color>,
     /// Every cell is pressed. Updated when a turn ends.
     full: bool,
+    /// Position of the cell locked at the last turn end, if one was.
+    last_move: Option<GridPosition>,
 }
 
 impl Board {
@@ -135,6 +138,12 @@ impl Board {
     /// without a winner is a draw: nobody can win it anymore.
     pub fn is_full(&self) -> bool {
         self.full
+    }
+
+    /// Position of the cell pressed in the last turn that ended with a move
+    /// in this board.
+    pub fn last_move(&self) -> Option<GridPosition> {
+        self.last_move
     }
 }
 
@@ -286,6 +295,7 @@ fn end_turn(
 ) {
     if let Some(pressed) = board.current.take() {
         commands.entity(pressed).insert(Locked);
+        board.last_move = cells.get(pressed).ok().map(|(_, position)| *position);
     }
 
     let mut grid = [[None; GRID_SIZE]; GRID_SIZE];
@@ -308,25 +318,26 @@ fn end_turn(
     board.winner = Some(color);
     commands.entity(entity).with_child((
         WinnerOverlay,
-        Sprite::from_color(color, Vec2::splat(BOARD_SIZE)),
+        Sprite::from_color(overlay_color(color, control), Vec2::splat(BOARD_SIZE)),
         Transform::from_xyz(0.0, 0.0, OVERLAY_Z),
         overlay_visibility(control),
     ));
 }
 
 /// Applies each board's `BoardControl` to its children: which cells can be
-/// clicked, and whether the winner square is shown.
+/// clicked, which colors are muted, and whether the winner square is shown.
 ///
 /// A cell is clickable when its board is clickable and the cell isn't locked.
 /// "Unclickable" means `Pickable::IGNORE`: picking skips the cell entirely.
+/// A board that can't be clicked mutes all its colors, cells and winner square.
 fn apply_board_control(
-    boards: Query<(&BoardControl, &Children)>,
-    mut cells: Query<(&mut Pickable, Has<Locked>), With<Cell>>,
-    mut overlays: Query<&mut Visibility, With<WinnerOverlay>>,
+    boards: Query<(&Board, &BoardControl, &Children)>,
+    mut cells: Query<(&mut Pickable, &mut Muted, Has<Locked>), With<Cell>>,
+    mut overlays: Query<(&mut Visibility, &mut Sprite), With<WinnerOverlay>>,
 ) {
-    for (control, children) in &boards {
+    for (board, control, children) in &boards {
         for child in children.iter() {
-            if let Ok((mut pickable, locked)) = cells.get_mut(child) {
+            if let Ok((mut pickable, mut muted, locked)) = cells.get_mut(child) {
                 let wanted = if control.clickable && !locked {
                     Pickable::default()
                 } else {
@@ -334,11 +345,24 @@ fn apply_board_control(
                 };
                 // `set_if_neq` only writes (and marks as changed) when different.
                 pickable.set_if_neq(wanted);
+                muted.set_if_neq(Muted(!control.clickable));
             }
-            if let Ok(mut visibility) = overlays.get_mut(child) {
+            if let Ok((mut visibility, mut sprite)) = overlays.get_mut(child) {
                 visibility.set_if_neq(overlay_visibility(control));
+                if let Some(winner) = board.winner {
+                    sprite.color = overlay_color(winner, control);
+                }
             }
         }
+    }
+}
+
+/// The winner square's color: muted while the board can't be clicked.
+fn overlay_color(winner: Color, control: &BoardControl) -> Color {
+    if control.clickable {
+        winner
+    } else {
+        mute(winner)
     }
 }
 

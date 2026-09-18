@@ -7,8 +7,14 @@
 //! - One pressed cell per turn in the **whole** hyperboard: pressing a cell in
 //!   another board unpresses the one pressed earlier in the turn.
 //! - A turn can only end after the player pressed a cell: no passing.
+//! - Where the next player must play: the first turn is played in the center
+//!   board. After that, the cell pressed in a turn sends the next player to
+//!   the board at the same position (pressing the top-right cell of any board
+//!   sends them to the top-right board). If that board is won or full, the
+//!   next player can play in any board that isn't won or full.
 //! - Which boards can be clicked and show their winner square, through each
-//!   board's `BoardControl`. For now: every board except won and full ones.
+//!   board's `BoardControl`. Only the boards the player may play in can be
+//!   clicked; the others are drawn muted.
 //! - After every turn, three won boards in a row of the same color win the
 //!   hyperboard: a square of that color covers everything, and no board can
 //!   be clicked anymore.
@@ -23,8 +29,9 @@
 //! 3. `HyperboardSystems::EndTurn`: a request to end the turn is accepted or rejected.
 //! 4. `BoardSystems::Turns`: boards end the turn and check their win. Every
 //!    cell change of the frame has already happened.
-//! 5. `HyperboardSystems::Results`: the hyperboard checks its win and decides
-//!    each board's `BoardControl`. Every board has already checked its win.
+//! 5. `HyperboardSystems::Results`: the hyperboard checks its win, chooses
+//!    where the next player plays, and sets each board's `BoardControl`.
+//!    Every board has already checked its win.
 //! 6. `BoardSystems::Control`: boards apply their `BoardControl`.
 
 mod constant;
@@ -69,7 +76,7 @@ impl Plugin for HyperboardPlugin {
                     )
                         .chain()
                         .in_set(HyperboardSystems::EndTurn),
-                    (check_for_winner, control_boards)
+                    (check_for_winner, choose_next_board, control_boards)
                         .chain()
                         .in_set(HyperboardSystems::Results),
                 ),
@@ -85,7 +92,8 @@ pub enum HyperboardSystems {
     Presses,
     /// Handles `EndTurnRequested`.
     EndTurn,
-    /// Checks the hyperboard's win and sets each board's `BoardControl`.
+    /// Checks the hyperboard's win, chooses the next board to play in, and
+    /// sets each board's `BoardControl`.
     Results,
 }
 
@@ -105,6 +113,12 @@ pub struct Hyperboard {
     players: Vec<Color>,
     /// The board with the cell pressed during the current turn, if any.
     active_board: Option<Entity>,
+    /// The board played in the turn that just ended, until the next board is
+    /// chosen from it.
+    played_board: Option<Entity>,
+    /// Where the current player must play: the board at this position, or
+    /// any board that isn't won or full when `None`.
+    next_board: Option<GridPosition>,
     /// The color that got three boards in a row.
     winner: Option<Color>,
 }
@@ -119,6 +133,12 @@ impl Hyperboard {
         Self {
             players,
             active_board: None,
+            played_board: None,
+            // The first turn is played in the center board.
+            next_board: Some(GridPosition {
+                col: GRID_SIZE / 2,
+                row: GRID_SIZE / 2,
+            }),
             winner: None,
         }
     }
@@ -201,7 +221,7 @@ fn end_requested_turns(
         }
         turn.number += 1;
         turn.color = hyperboard.player_for_turn(turn.number);
-        hyperboard.active_board = None;
+        hyperboard.played_board = hyperboard.active_board.take();
     }
 }
 
@@ -272,22 +292,55 @@ fn check_for_winner(
     }
 }
 
+/// After a turn ends, chooses where the next player must play: the board at
+/// the position of the cell just pressed, or any board if that one is won or
+/// full. Runs after the boards checked their wins, so a board won by the
+/// move itself already counts as won.
+fn choose_next_board(
+    mut hyperboards: Query<(&mut Hyperboard, &Children)>,
+    boards: Query<(&Board, &GridPosition)>,
+) {
+    for (mut hyperboard, children) in &mut hyperboards {
+        // `played_board` is only set by a turn that just ended. Read it first:
+        // `take()` would count as a write every frame, even with nothing to
+        // take, and mark the hyperboard as changed.
+        let Some(played) = hyperboard.played_board else {
+            continue;
+        };
+        hyperboard.played_board = None;
+        let Some(target) = boards
+            .get(played)
+            .ok()
+            .and_then(|(board, _)| board.last_move())
+        else {
+            continue;
+        };
+        let target_is_open = children.iter().any(|child| {
+            boards.get(child).is_ok_and(|(board, position)| {
+                *position == target && board.winner().is_none() && !board.is_full()
+            })
+        });
+        hyperboard.next_board = target_is_open.then_some(target);
+    }
+}
+
 /// Decides what each board may do, through its `BoardControl`.
 ///
-/// For now every board can be clicked except won and full ones, and nothing
-/// can be clicked once the game is won. Won boards always show their winner
-/// square; full boards without a winner look the same as before.
+/// A board can be clicked when the game isn't won, the board isn't won or
+/// full, and it's where the current player must play (see `next_board`).
+/// Boards that can't be clicked are drawn muted. Won boards always show their
+/// winner square.
 fn control_boards(
     hyperboards: Query<(&Hyperboard, &Children)>,
-    mut boards: Query<(&Board, &mut BoardControl)>,
+    mut boards: Query<(&Board, &GridPosition, &mut BoardControl)>,
 ) {
     for (hyperboard, children) in &hyperboards {
         for child in children.iter() {
-            if let Ok((board, mut control)) = boards.get_mut(child) {
+            if let Ok((board, position, mut control)) = boards.get_mut(child) {
+                let open = board.winner().is_none() && !board.is_full();
+                let allowed = hyperboard.next_board.is_none_or(|next| next == *position);
                 control.set_if_neq(BoardControl {
-                    clickable: hyperboard.winner.is_none()
-                        && board.winner().is_none()
-                        && !board.is_full(),
+                    clickable: hyperboard.winner.is_none() && open && allowed,
                     show_winner_overlay: true,
                 });
             }

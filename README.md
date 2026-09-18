@@ -5,8 +5,12 @@ A 2D board game written in [Rust](https://www.rust-lang.org/) with the
 
 > **Status:** early development. A 3×3 hyperboard of 3×3 boards for two
 > players: press a cell, end the turn with **Space** (you can't pass without
-> pressing a cell). Win three boards in a row to win the game. Won and full
-> boards can't be played anymore.
+> pressing a cell). Win three boards in a row to win the game.
+>
+> The first move is played in the center board. After that, the cell you press
+> sends the next player to the board at the same position; if that board is
+> won or full, they can play in any open board. Boards you can't play in are
+> drawn with muted colors.
 
 ## Requirements
 
