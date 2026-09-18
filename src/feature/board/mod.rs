@@ -70,20 +70,7 @@ fn cell_position(col: usize, row: usize) -> Vec2 {
     Vec2::new(col as f32 * step - offset, offset - row as f32 * step)
 }
 
-// Unit tests: run them with `cargo test`. `#[cfg(test)]` means this module
-// is only compiled when testing, so it never ends up in the game binary.
+// Unit tests live in `tests.rs`, next to this file. `#[cfg(test)]` means they
+// are only compiled for `cargo test`, never into the game.
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn center_cell_is_at_origin() {
-        assert_eq!(cell_position(1, 1), Vec2::ZERO);
-    }
-
-    #[test]
-    fn top_left_cell_is_up_and_left() {
-        let step = CELL_SIZE + CELL_GAP;
-        assert_eq!(cell_position(0, 0), Vec2::new(-step, step));
-    }
-}
+mod tests;
