@@ -3,13 +3,14 @@
 //! This module is private to `board` (declared as `mod constant;`, without
 //! `pub`), so `pub` here only means "visible inside the board feature".
 
-use bevy::color::Color;
+use crate::feature::cell::CELL_SIZE;
 
 /// Number of cells per side of the board.
 pub const GRID_SIZE: usize = 3;
-/// Width and height of one cell, in world units (= pixels with the default camera).
-pub const CELL_SIZE: f32 = 150.0;
 /// Empty space between neighbouring cells.
 pub const CELL_GAP: f32 = 10.0;
-
-pub const CELL_COLOR: Color = Color::srgb(0.85, 0.85, 0.80);
+/// Width and height of the whole board: the cells plus the gaps between them.
+pub const BOARD_SIZE: f32 = GRID_SIZE as f32 * CELL_SIZE + (GRID_SIZE as f32 - 1.0) * CELL_GAP;
+/// How far in front of the cells the winner overlay is drawn. In 2D, a higher
+/// `z` is drawn on top.
+pub const OVERLAY_Z: f32 = 1.0;

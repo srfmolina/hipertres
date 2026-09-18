@@ -9,7 +9,7 @@ pub(super) fn register(app: &mut App) {
     // Creates default settings (all off) if `DebugPlugin` hasn't added them,
     // so cells work even without the debug feature.
     app.init_resource::<DebugSettings>().add_systems(
-        Update,
+        PostUpdate,
         log_cell_changes
             // Run after the colors are updated, so the log shows the new color.
             .after(update_cell_colors)
@@ -20,8 +20,8 @@ pub(super) fn register(app: &mut App) {
 fn log_cell_changes(cells: Query<(Entity, &Cell, &Sprite), Changed<Cell>>) {
     for (entity, cell, sprite) in &cells {
         info!(
-            "[cells] Cell {entity} pressed={} color={:?}",
-            cell.pressed,
+            "[cells] Cell {entity} pressed={:?} color={:?}",
+            cell.pressed.map(|c| c.to_srgba()),
             sprite.color.to_srgba()
         );
     }

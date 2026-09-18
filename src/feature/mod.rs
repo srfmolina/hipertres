@@ -28,8 +28,5 @@ impl PluginGroup for FeaturePlugins {
             .add(cell::CellPlugin)
             .add(board::BoardPlugin)
             .add(sandbox::SandboxPlugin)
-            // Temporarily off while trying out cells alone in the sandbox.
-            // Delete this line to bring the board back.
-            .disable::<board::BoardPlugin>()
     }
 }

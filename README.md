@@ -48,8 +48,8 @@ src/
     ├── debug/           DebugPlugin: switchable diagnostics (see Debugging)
     ├── camera/          CameraPlugin: 2D camera and background color
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
-    ├── board/           BoardPlugin: the 3×3 grid (currently disabled)
-    └── sandbox/         SandboxPlugin: temporary scene with a single cell
+    ├── board/           BoardPlugin: 3×3 cells, one press per turn, three in a row
+    └── sandbox/         SandboxPlugin: temporary scene, one board (Space ends the turn)
 ```
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
@@ -87,6 +87,7 @@ are off by default.
 | `input`   | F1  | Raw mouse buttons and cursor position |
 | `picking` | F2  | What the pointer is over, and pointer events (Over, Press, Click) per entity |
 | `cells`   | F3  | Cell state changes (pressed, color) |
+| `boards`  | F4  | Board state changes (turn, pressed cell, winner) |
 
 Turn channels on at startup with `HIPERTRES_DEBUG`, or toggle them in game
 with their key:

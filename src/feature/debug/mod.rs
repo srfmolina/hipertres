@@ -53,10 +53,12 @@ pub enum DebugChannel {
     Picking,
     /// Cell state changes (pressed, color).
     Cells,
+    /// Board state changes (turn, pressed cell, winner).
+    Boards,
 }
 
 impl DebugChannel {
-    pub const ALL: [DebugChannel; 3] = [Self::Input, Self::Picking, Self::Cells];
+    pub const ALL: [DebugChannel; 4] = [Self::Input, Self::Picking, Self::Cells, Self::Boards];
 
     /// Name used in `HIPERTRES_DEBUG` and in log messages.
     pub fn name(self) -> &'static str {
@@ -64,6 +66,7 @@ impl DebugChannel {
             Self::Input => "input",
             Self::Picking => "picking",
             Self::Cells => "cells",
+            Self::Boards => "boards",
         }
     }
 
@@ -73,6 +76,7 @@ impl DebugChannel {
             Self::Input => KeyCode::F1,
             Self::Picking => KeyCode::F2,
             Self::Cells => KeyCode::F3,
+            Self::Boards => KeyCode::F4,
         }
     }
 }
