@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 
-use super::meta::constant::DEFAULT_PLAYERS;
 use crate::feature::board::{GRID_SIZE, GridPosition};
 
 /// The hyperboard's state. Its boards are its children, and it also holds the
@@ -13,8 +12,8 @@ use crate::feature::board::{GRID_SIZE, GridPosition};
 #[derive(Component, Debug)]
 #[require(Transform, Visibility, Name = Name::new("Hyperboard"))]
 pub struct Hyperboard {
-    /// Players in turn order, identified by their color.
-    pub(super) players: Vec<Color>,
+    /// Player entities, in turn order.
+    pub(super) players: Vec<Entity>,
     /// The board with the cell pressed during the current turn, if any.
     pub(super) active_board: Option<Entity>,
     /// The board played in the turn that just ended, until the next board is
@@ -23,13 +22,17 @@ pub struct Hyperboard {
     /// Where the current player must play: the board at this position, or
     /// any board that isn't won or full when `None`.
     pub(super) next_board: Option<GridPosition>,
-    /// The color that got three boards in a row.
-    pub(super) winner: Option<Color>,
+    /// The player who got three boards in a row.
+    pub(super) winner: Option<Entity>,
 }
 
 impl Hyperboard {
-    /// A hyperboard for these players, in turn order. Panics if there are none.
-    pub fn new(players: Vec<Color>) -> Self {
+    /// A hyperboard for these players (see `spawn_players` in the player
+    /// feature), in turn order. Panics if there are none.
+    ///
+    /// There is no `Default`: players are entities, so someone with
+    /// `Commands` (the game feature) has to spawn them first.
+    pub fn new(players: Vec<Entity>) -> Self {
         assert!(
             !players.is_empty(),
             "a hyperboard needs at least one player"
@@ -47,22 +50,16 @@ impl Hyperboard {
         }
     }
 
-    /// The color that won the game, if any.
-    pub fn winner(&self) -> Option<Color> {
+    /// The player who won the game, if any.
+    pub fn winner(&self) -> Option<Entity> {
         self.winner
     }
 
     /// The player who plays turn `number` (turns start at 1): players take
     /// turns in list order, starting again from the first.
-    pub fn player_for_turn(&self, number: u32) -> Color {
+    pub fn player_for_turn(&self, number: u32) -> Entity {
         let index = (number as usize).saturating_sub(1) % self.players.len();
         self.players[index]
-    }
-}
-
-impl Default for Hyperboard {
-    fn default() -> Self {
-        Self::new(DEFAULT_PLAYERS.to_vec())
     }
 }
 

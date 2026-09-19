@@ -6,8 +6,9 @@ use super::component::{Hyperboard, WinnerOverlay};
 use super::message::EndTurnRequested;
 use super::meta::constant::{HYPERBOARD_SIZE, OVERLAY_Z};
 use crate::feature::board::{
-    Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, Turn, winning_color,
+    Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, Turn, three_in_a_row,
 };
+use crate::feature::player::{PlayerColor, PlayerMark};
 
 /// The hyperboard's steps in `Update`. See "Order of a frame" above.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -47,7 +48,7 @@ pub(super) fn end_requested_turns(
             continue;
         }
         turn.number += 1;
-        turn.color = hyperboard.player_for_turn(turn.number);
+        turn.player = hyperboard.player_for_turn(turn.number);
         hyperboard.played_board = hyperboard.active_board.take();
     }
 }
@@ -88,11 +89,12 @@ pub(super) fn keep_one_press_per_turn(
     }
 }
 
-/// After every turn, checks for three won boards in a row of the same color.
+/// After every turn, checks for three boards in a row won by the same player.
 pub(super) fn check_for_winner(
     mut commands: Commands,
     mut hyperboards: Query<(Entity, &mut Hyperboard, Ref<Turn>, &Children)>,
     boards: Query<(&Board, &GridPosition)>,
+    player_colors: Query<&PlayerColor>,
 ) {
     for (entity, mut hyperboard, turn, children) in &mut hyperboards {
         // `Ref<Turn>` gives read access plus change detection: the turn
@@ -107,14 +109,20 @@ pub(super) fn check_for_winner(
                 grid[position.row][position.col] = board.winner();
             }
         }
-        let Some(color) = winning_color(&grid) else {
+        let Some(winner) = three_in_a_row(&grid) else {
             continue;
         };
-        hyperboard.winner = Some(color);
+        hyperboard.winner = Some(winner);
+        let color = player_colors.get(winner).map_or(Color::NONE, |c| c.0);
         commands.entity(entity).with_child((
             WinnerOverlay,
             Sprite::from_color(color, Vec2::splat(HYPERBOARD_SIZE)),
             Transform::from_xyz(0.0, 0.0, OVERLAY_Z),
+            // The player feature draws the winner's icon, big, in the middle.
+            PlayerMark {
+                player: Some(winner),
+                muted: false,
+            },
         ));
     }
 }

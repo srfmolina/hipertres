@@ -8,9 +8,10 @@ use bevy::prelude::*;
 use super::component::{Board, BoardControl, GridPosition, Locked, Turn, WinnerOverlay};
 use super::event::ClearTurnPress;
 use super::meta::constant::{BOARD_SIZE, GRID_SIZE, OVERLAY_Z};
-use super::rule::winning_color;
-use crate::feature::cell::{Cell, Muted, PressedColor};
+use super::rule::three_in_a_row;
+use crate::feature::cell::{ActivePlayer, Cell, Muted};
 use crate::feature::common::color::mute;
+use crate::feature::player::{PlayerColor, PlayerMark};
 
 /// The groups of board systems, in the order they run each frame.
 /// A `SystemSet` is a label for a group of systems.
@@ -87,12 +88,13 @@ pub(super) fn clear_turn_press(
 }
 
 /// Reads the `Turn` of each board's parent and reacts when it changes: ends
-/// the previous turn and takes the new turn's color.
+/// the previous turn and takes the new turn's player.
 pub(super) fn follow_parent_turn(
     mut commands: Commands,
     mut boards: Query<(Entity, &mut Board, &BoardControl, &ChildOf, &Children)>,
     turns: Query<&Turn>,
     cells: Query<(&Cell, &GridPosition)>,
+    player_colors: Query<&PlayerColor>,
 ) {
     for (entity, mut board, control, child_of, children) in &mut boards {
         let Ok(turn) = turns.get(child_of.parent()) else {
@@ -103,11 +105,19 @@ pub(super) fn follow_parent_turn(
         }
         // The first turn the board sees doesn't end anything.
         if board.turn.is_some() {
-            end_turn(&mut commands, entity, &mut board, control, children, &cells);
+            end_turn(
+                &mut commands,
+                entity,
+                &mut board,
+                control,
+                children,
+                &cells,
+                &player_colors,
+            );
         }
         board.turn = Some(turn.number);
-        // Cells read `PressedColor` from their parent (this board).
-        commands.entity(entity).insert(PressedColor(turn.color));
+        // Cells read `ActivePlayer` from their parent (this board).
+        commands.entity(entity).insert(ActivePlayer(turn.player));
     }
 }
 
@@ -120,6 +130,7 @@ fn end_turn(
     control: &BoardControl,
     children: &Children,
     cells: &Query<(&Cell, &GridPosition)>,
+    player_colors: &Query<&PlayerColor>,
 ) {
     if let Some(pressed) = board.current.take() {
         commands.entity(pressed).insert(Locked);
@@ -139,16 +150,19 @@ fn end_turn(
     if board.winner.is_some() {
         return; // The first three in a row is the one that counts.
     }
-    let Some(color) = winning_color(&grid) else {
+    let Some(winner) = three_in_a_row(&grid) else {
         return;
     };
 
-    board.winner = Some(color);
+    board.winner = Some(winner);
+    let color = player_colors.get(winner).map_or(Color::NONE, |c| c.0);
     commands.entity(entity).with_child((
         WinnerOverlay,
         Sprite::from_color(overlay_color(color, control), Vec2::splat(BOARD_SIZE)),
         Transform::from_xyz(0.0, 0.0, OVERLAY_Z),
         overlay_visibility(control),
+        // The player feature draws the winner's icon on the square.
+        overlay_mark(winner, control),
     ));
 }
 
@@ -157,11 +171,13 @@ fn end_turn(
 ///
 /// A cell is clickable when its board is clickable and the cell isn't locked.
 /// "Unclickable" means `Pickable::IGNORE`: picking skips the cell entirely.
-/// A board that can't be clicked mutes all its colors, cells and winner square.
+/// A board that can't be clicked mutes all its colors, cells and winner square
+/// (with its icon).
 pub(super) fn apply_board_control(
     boards: Query<(&Board, &BoardControl, &Children)>,
     mut cells: Query<(&mut Pickable, &mut Muted, Has<Locked>), With<Cell>>,
-    mut overlays: Query<(&mut Visibility, &mut Sprite), With<WinnerOverlay>>,
+    mut overlays: Query<(&mut Visibility, &mut Sprite, &mut PlayerMark), With<WinnerOverlay>>,
+    player_colors: Query<&PlayerColor>,
 ) {
     for (board, control, children) in &boards {
         for child in children.iter() {
@@ -175,10 +191,12 @@ pub(super) fn apply_board_control(
                 pickable.set_if_neq(wanted);
                 muted.set_if_neq(Muted(!control.clickable));
             }
-            if let Ok((mut visibility, mut sprite)) = overlays.get_mut(child) {
+            if let Ok((mut visibility, mut sprite, mut mark)) = overlays.get_mut(child) {
                 visibility.set_if_neq(overlay_visibility(control));
                 if let Some(winner) = board.winner {
-                    sprite.color = overlay_color(winner, control);
+                    let color = player_colors.get(winner).map_or(Color::NONE, |c| c.0);
+                    sprite.color = overlay_color(color, control);
+                    mark.set_if_neq(overlay_mark(winner, control));
                 }
             }
         }
@@ -191,6 +209,14 @@ fn overlay_color(winner: Color, control: &BoardControl) -> Color {
         winner
     } else {
         mute(winner)
+    }
+}
+
+/// The winner square's icon: the winner's, muted like the square.
+fn overlay_mark(winner: Entity, control: &BoardControl) -> PlayerMark {
+    PlayerMark {
+        player: Some(winner),
+        muted: !control.clickable,
     }
 }
 

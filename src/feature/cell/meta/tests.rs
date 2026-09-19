@@ -1,13 +1,34 @@
 // `super::super` is `cell/mod.rs`: its plugin and its public API.
 use super::super::*;
-use super::constant::{DEFAULT_PRESSED_COLOR, UNPRESSED_COLOR};
+use super::constant::UNPRESSED_COLOR;
 use crate::feature::common::color::mute;
+use crate::feature::player::{Player, PlayerColor, PlayerMark, PlayerPlugin};
 
-/// An App with only the cell feature: no window or rendering needed.
+const RED: Color = Color::srgb(1.0, 0.0, 0.0);
+const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
+
+/// An App with the player and cell features: no window or rendering needed.
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_plugins(CellPlugin);
+    app.add_plugins((PlayerPlugin, CellPlugin));
     app
+}
+
+fn spawn_player(app: &mut App, symbol: char, color: Color) -> Entity {
+    app.world_mut()
+        .spawn((Player { symbol }, PlayerColor(color)))
+        .id()
+}
+
+/// Spawns a stand-in board whose `ActivePlayer` is `player`, with one cell
+/// inside it. Returns (parent, cell).
+fn setup(app: &mut App, player: Entity) -> (Entity, Entity) {
+    let parent = app.world_mut().spawn(ActivePlayer(player)).id();
+    let cell = app
+        .world_mut()
+        .spawn((Cell::default(), ChildOf(parent)))
+        .id();
+    (parent, cell)
 }
 
 /// Clicks `cell` the way a real left click does, then runs one frame.
@@ -24,6 +45,10 @@ fn color_of(app: &App, cell: Entity) -> Color {
     app.world().get::<Sprite>(cell).unwrap().color
 }
 
+fn mark_of(app: &App, cell: Entity) -> PlayerMark {
+    *app.world().get::<PlayerMark>(cell).unwrap()
+}
+
 #[test]
 fn new_cell_is_unpressed_and_white() {
     let mut app = test_app();
@@ -32,6 +57,7 @@ fn new_cell_is_unpressed_and_white() {
 
     assert_eq!(cell(&app, entity).pressed, None);
     assert_eq!(color_of(&app, entity), UNPRESSED_COLOR);
+    assert_eq!(mark_of(&app, entity), PlayerMark::default());
 }
 
 /// Bevy's sprite picking ignores sprites without `Pickable`, and clicks
@@ -44,77 +70,107 @@ fn new_cell_is_pickable() {
     assert!(app.world().get::<Pickable>(entity).is_some());
 }
 
+/// A cell can't be pressed by nobody: without a parent's `ActivePlayer`,
+/// clicks do nothing.
 #[test]
-fn click_without_parent_uses_default_color_and_second_click_unpresses() {
+fn click_without_active_player_is_ignored() {
     let mut app = test_app();
-    let entity = app.world_mut().spawn(Cell::default()).id();
+    let orphan = app.world_mut().spawn(Cell::default()).id();
+    let parent = app.world_mut().spawn_empty().id();
+    let child = app
+        .world_mut()
+        .spawn((Cell::default(), ChildOf(parent)))
+        .id();
+
+    click(&mut app, orphan);
+    click(&mut app, child);
+    assert_eq!(cell(&app, orphan).pressed, None);
+    assert_eq!(cell(&app, child).pressed, None);
+}
+
+#[test]
+fn parent_active_player_presses_and_second_click_unpresses() {
+    let mut app = test_app();
+    let red = spawn_player(&mut app, 'x', RED);
+    let (_, entity) = setup(&mut app, red);
 
     click(&mut app, entity);
-    assert_eq!(cell(&app, entity).pressed, Some(DEFAULT_PRESSED_COLOR));
-    assert_eq!(color_of(&app, entity), DEFAULT_PRESSED_COLOR);
+    assert_eq!(cell(&app, entity).pressed, Some(red));
+    assert_eq!(color_of(&app, entity), RED);
+    assert_eq!(
+        mark_of(&app, entity),
+        PlayerMark {
+            player: Some(red),
+            muted: false
+        }
+    );
 
     click(&mut app, entity);
     assert_eq!(cell(&app, entity).pressed, None);
     assert_eq!(color_of(&app, entity), UNPRESSED_COLOR);
+    assert_eq!(mark_of(&app, entity).player, None);
 }
 
 #[test]
-fn parent_decides_pressed_color() {
+fn pressed_cell_keeps_its_player_when_active_player_changes() {
     let mut app = test_app();
-    let red = Color::srgb(1.0, 0.0, 0.0);
-    let parent = app.world_mut().spawn(PressedColor(red)).id();
-    let entity = app
-        .world_mut()
-        .spawn((Cell::default(), ChildOf(parent)))
-        .id();
-
-    click(&mut app, entity);
-    assert_eq!(color_of(&app, entity), red);
-}
-
-#[test]
-fn pressed_cell_keeps_its_color_when_parent_color_changes() {
-    let mut app = test_app();
-    let red = Color::srgb(1.0, 0.0, 0.0);
-    let blue = Color::srgb(0.0, 0.0, 1.0);
-    let parent = app.world_mut().spawn(PressedColor(red)).id();
-    let entity = app
-        .world_mut()
-        .spawn((Cell::default(), ChildOf(parent)))
-        .id();
+    let red = spawn_player(&mut app, 'x', RED);
+    let blue = spawn_player(&mut app, 'o', BLUE);
+    let (parent, entity) = setup(&mut app, red);
 
     click(&mut app, entity);
     app.world_mut()
         .entity_mut(parent)
-        .insert(PressedColor(blue));
+        .insert(ActivePlayer(blue));
     app.update();
 
     assert_eq!(cell(&app, entity).pressed, Some(red));
+    assert_eq!(color_of(&app, entity), RED);
 }
 
 #[test]
 fn muted_cell_is_drawn_with_muted_colors() {
     let mut app = test_app();
-    let entity = app.world_mut().spawn(Cell::default()).id();
+    let red = spawn_player(&mut app, 'x', RED);
+    let (_, entity) = setup(&mut app, red);
     click(&mut app, entity);
 
     app.world_mut().entity_mut(entity).insert(Muted(true));
     app.update();
-    assert_eq!(color_of(&app, entity), mute(DEFAULT_PRESSED_COLOR));
+    assert_eq!(color_of(&app, entity), mute(RED));
+    assert!(mark_of(&app, entity).muted);
 
     app.world_mut().entity_mut(entity).insert(Muted(false));
     app.update();
-    assert_eq!(color_of(&app, entity), DEFAULT_PRESSED_COLOR);
+    assert_eq!(color_of(&app, entity), RED);
+    assert!(!mark_of(&app, entity).muted);
 }
 
 #[test]
 fn clicks_on_an_unclickable_cell_are_ignored() {
     let mut app = test_app();
-    let entity = app
-        .world_mut()
-        .spawn((Cell::default(), Pickable::IGNORE))
-        .id();
+    let red = spawn_player(&mut app, 'x', RED);
+    let (_, entity) = setup(&mut app, red);
+    app.world_mut().entity_mut(entity).insert(Pickable::IGNORE);
 
     click(&mut app, entity);
     assert_eq!(cell(&app, entity).pressed, None);
+}
+
+/// The player feature draws the icon of the player who pressed the cell,
+/// in the same frame as the click.
+#[test]
+fn pressed_cell_shows_its_player_icon() {
+    let mut app = test_app();
+    let red = spawn_player(&mut app, 'x', RED);
+    let (_, entity) = setup(&mut app, red);
+
+    click(&mut app, entity);
+    let world = app.world_mut();
+    let children: Vec<Entity> = world.get::<Children>(entity).unwrap().iter().collect();
+    let texts: Vec<String> = children
+        .into_iter()
+        .filter_map(|child| world.get::<Text2d>(child).map(|text| text.0.clone()))
+        .collect();
+    assert_eq!(texts, ["x"]);
 }

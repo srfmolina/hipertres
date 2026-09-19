@@ -2,10 +2,11 @@
 
 use bevy::prelude::*;
 
-use super::component::{Cell, Muted, PressedColor};
+use super::component::{ActivePlayer, Cell, Muted};
 use super::message::CellClicked;
-use super::meta::constant::{DEFAULT_PRESSED_COLOR, UNPRESSED_COLOR};
+use super::meta::constant::UNPRESSED_COLOR;
 use crate::feature::common::color::mute;
+use crate::feature::player::{PlayerColor, PlayerMark};
 
 /// The cell's steps in `Update`, so other features can run after them.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -32,15 +33,15 @@ pub(super) fn send_cell_clicks(click: On<Pointer<Click>>, mut clicks: MessageWri
     }
 }
 
-/// Toggles every clicked cell: unpressed becomes pressed with the parent's
-/// `PressedColor`, and pressed becomes unpressed.
+/// Toggles every clicked cell: unpressed becomes pressed by the parent's
+/// `ActivePlayer`, and pressed becomes unpressed.
 ///
 /// A `MessageReader` returns each message once: the messages sent since this
 /// system last read them.
 pub(super) fn apply_clicks(
     mut clicks: MessageReader<CellClicked>,
     mut cells: Query<(&mut Cell, &Pickable, Option<&ChildOf>)>,
-    pressed_colors: Query<&PressedColor>,
+    active_players: Query<&ActivePlayer>,
 ) {
     for click in clicks.read() {
         // `get_mut` returns `Err` when the entity has no `Cell`: the click
@@ -53,23 +54,26 @@ pub(super) fn apply_clicks(
         if !pickable.is_hoverable {
             continue;
         }
-        cell.pressed = match cell.pressed {
-            Some(_) => None,
-            // `ChildOf` exists only if the cell has a parent. Ask the parent
-            // for its `PressedColor`, and fall back to the default.
-            None => Some(
-                child_of
-                    .and_then(|child_of| pressed_colors.get(child_of.parent()).ok())
-                    .map_or(DEFAULT_PRESSED_COLOR, |pressed_color| pressed_color.0),
-            ),
-        };
+        if cell.pressed.is_some() {
+            cell.pressed = None;
+            continue;
+        }
+        // `ChildOf` exists only if the cell has a parent. Ask the parent
+        // who is playing. Nobody playing: the click is ignored.
+        if let Some(active) =
+            child_of.and_then(|child_of| active_players.get(child_of.parent()).ok())
+        {
+            cell.pressed = Some(active.0);
+        }
     }
 }
 
 /// A query filter matching cells whose `Cell` *or* `Muted` changed.
 type CellOrMutedChanged = Or<(Changed<Cell>, Changed<Muted>)>;
 
-/// Paints each cell according to its state.
+/// Paints each cell according to its state: white when unpressed, the color
+/// of the player who pressed it otherwise, muted if `Muted`. It also tells the
+/// player feature whose icon to draw on it (`PlayerMark`).
 ///
 /// Keeping the *state* (`Cell`, changed by clicks and by the board) separate
 /// from the *visuals* (this system) means anything can change a cell and the
@@ -79,10 +83,20 @@ type CellOrMutedChanged = Or<(Changed<Cell>, Changed<Muted>)>;
 /// `Cell` component changed since this system last ran, so idle cells cost
 /// nothing. Newly spawned cells count as changed too.
 pub(super) fn update_cell_colors(
-    mut cells: Query<(&Cell, &Muted, &mut Sprite), CellOrMutedChanged>,
+    mut cells: Query<(&Cell, &Muted, &mut Sprite, &mut PlayerMark), CellOrMutedChanged>,
+    player_colors: Query<&PlayerColor>,
 ) {
-    for (cell, muted, mut sprite) in &mut cells {
-        let color = cell.pressed.unwrap_or(UNPRESSED_COLOR);
+    for (cell, muted, mut sprite, mut mark) in &mut cells {
+        let color = cell
+            .pressed
+            .and_then(|player| player_colors.get(player).ok())
+            .map_or(UNPRESSED_COLOR, |player_color| player_color.0);
         sprite.color = if muted.0 { mute(color) } else { color };
+        // `set_if_neq` only marks the mark as changed (and redraws the icon)
+        // when it really changes.
+        mark.set_if_neq(PlayerMark {
+            player: cell.pressed,
+            muted: muted.0,
+        });
     }
 }

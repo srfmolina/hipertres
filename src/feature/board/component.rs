@@ -13,9 +13,8 @@ pub struct Turn {
     /// Increases by one when a turn ends. Boards compare it to the last value
     /// they saw to notice that a turn ended.
     pub number: u32,
-    /// Color of the player whose turn it is. The board's cells get pressed
-    /// with it.
-    pub color: Color,
+    /// The player whose turn it is. The board's cells get pressed by them.
+    pub player: Entity,
 }
 
 /// What a board's parent allows it to do. It goes on the board, and only the
@@ -50,8 +49,8 @@ pub struct Board {
     pub(super) turn: Option<u32>,
     /// The cell pressed during the current turn, if any.
     pub(super) current: Option<Entity>,
-    /// The color that got three in a row first.
-    pub(super) winner: Option<Color>,
+    /// The player who got three in a row first.
+    pub(super) winner: Option<Entity>,
     /// Every cell is pressed. Updated when a turn ends.
     pub(super) full: bool,
     /// Position of the cell locked at the last turn end, if one was.
@@ -64,8 +63,8 @@ impl Board {
         self.current
     }
 
-    /// The color that won this board, if any.
-    pub fn winner(&self) -> Option<Color> {
+    /// The player who won this board, if any.
+    pub fn winner(&self) -> Option<Entity> {
         self.winner
     }
 

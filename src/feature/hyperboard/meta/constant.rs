@@ -4,12 +4,6 @@ use bevy::prelude::*;
 
 use crate::feature::board::{BOARD_SIZE, GRID_SIZE};
 
-/// The players, in turn order, identified by their color.
-pub const DEFAULT_PLAYERS: [Color; 2] = [
-    Color::srgb(0.25, 0.55, 0.95), // blue
-    Color::srgb(0.95, 0.55, 0.20), // orange
-];
-
 /// Key that ends the current turn.
 pub const END_TURN_KEY: KeyCode = KeyCode::Space;
 

@@ -3,34 +3,58 @@ use super::super::component::WinnerOverlay;
 use super::super::*;
 use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition, Turn};
 use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
+use crate::feature::player::{PlayerMark, PlayerPlugin, spawn_players};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
 
-/// An App with the cell, board and hyperboard features and a hyperboard for
-/// `players`, with no window or rendering. Returns (app, hyperboard).
-fn setup(players: Vec<Color>) -> (App, Entity) {
+/// The test players' entities, with the color each one plays with, so tests
+/// can say "the red player" (see `player`).
+#[derive(Resource)]
+struct TestPlayers(Vec<(Color, Entity)>);
+
+/// The entity of the player who plays with `color`.
+fn player(app: &App, color: Color) -> Entity {
+    app.world()
+        .resource::<TestPlayers>()
+        .0
+        .iter()
+        .find(|(c, _)| *c == color)
+        .unwrap()
+        .1
+}
+
+/// An App with the player, cell, board and hyperboard features, one player
+/// per color in `colors` (in turn order), and a hyperboard for them, with no
+/// window or rendering. Returns (app, hyperboard).
+fn setup(colors: Vec<Color>) -> (App, Entity) {
     let mut app = App::new();
-    app.add_plugins((CellPlugin, BoardPlugin, HyperboardPlugin));
+    app.add_plugins((PlayerPlugin, CellPlugin, BoardPlugin, HyperboardPlugin));
     // Keyboard state, normally created by `DefaultPlugins` (the Space key
     // system reads it). Nothing is pressed in tests: they call `end_turn`.
     app.init_resource::<ButtonInput<KeyCode>>();
-    // Cached systems can't capture variables, so `players` goes in as the
+    // Cached systems can't capture variables, so `colors` goes in as the
     // system's input instead.
-    let hyperboard = app
+    let (hyperboard, players) = app
         .world_mut()
         .run_system_cached_with(
-            |In(players): In<Vec<Color>>, mut commands: Commands| {
-                spawn_hyperboard(
+            |In(colors): In<Vec<Color>>, mut commands: Commands| {
+                // Symbols don't matter here: 'a', 'b', 'c'...
+                let symbols_and_colors: Vec<(char, Color)> =
+                    ('a'..).zip(colors.iter().copied()).collect();
+                let players = spawn_players(&mut commands, &symbols_and_colors);
+                let hyperboard = spawn_hyperboard(
                     &mut commands,
-                    Hyperboard::new(players),
+                    Hyperboard::new(players.clone()),
                     Transform::default(),
-                )
+                );
+                (hyperboard, colors.into_iter().zip(players).collect())
             },
-            players,
+            colors,
         )
         .unwrap();
+    app.insert_resource(TestPlayers(players));
     app.update();
     (app, hyperboard)
 }
@@ -106,7 +130,7 @@ fn turn(app: &App, hyperboard: Entity) -> Turn {
     *app.world().get::<Turn>(hyperboard).unwrap()
 }
 
-fn pressed(app: &App, cell: Entity) -> Option<Color> {
+fn pressed(app: &App, cell: Entity) -> Option<Entity> {
     app.world().get::<Cell>(cell).unwrap().pressed
 }
 
@@ -178,8 +202,9 @@ fn hyperboard_spawns_nine_boards_as_children() {
 }
 
 #[test]
-fn default_hyperboard_has_two_players() {
-    assert_eq!(Hyperboard::default().players.len(), 2);
+#[should_panic(expected = "at least one player")]
+fn hyperboard_needs_at_least_one_player() {
+    Hyperboard::new(Vec::new());
 }
 
 #[test]
@@ -189,7 +214,7 @@ fn turns_go_through_the_players_in_order() {
         turn(&app, hyperboard),
         Turn {
             number: 1,
-            color: RED
+            player: player(&app, RED)
         }
     );
 
@@ -201,7 +226,7 @@ fn turns_go_through_the_players_in_order() {
                 turn(&app, hyperboard),
                 Turn {
                     number: 2,
-                    color: GREEN
+                    player: player(&app, GREEN)
                 }
             );
         }
@@ -210,13 +235,13 @@ fn turns_go_through_the_players_in_order() {
         turn(&app, hyperboard),
         Turn {
             number: 4,
-            color: RED
+            player: player(&app, RED)
         }
     );
 }
 
 #[test]
-fn cells_get_pressed_with_the_current_players_color() {
+fn cells_get_pressed_by_the_current_player() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
     let center = child_at(&mut app, hyperboard, 1, 1);
     let first_move = child_at(&mut app, center, 0, 0);
@@ -226,7 +251,7 @@ fn cells_get_pressed_with_the_current_players_color() {
     let cell = child_at(&mut app, board, 0, 0);
 
     click(&mut app, cell);
-    assert_eq!(pressed(&app, cell), Some(BLUE));
+    assert_eq!(pressed(&app, cell), Some(player(&app, BLUE)));
 }
 
 #[test]
@@ -242,7 +267,7 @@ fn only_one_cell_can_be_pressed_per_turn_in_the_whole_hyperboard() {
     click(&mut app, second);
 
     assert_eq!(pressed(&app, first), None);
-    assert_eq!(pressed(&app, second), Some(RED));
+    assert_eq!(pressed(&app, second), Some(player(&app, RED)));
 }
 
 #[test]
@@ -255,7 +280,10 @@ fn won_boards_become_unclickable_and_the_rest_stay_clickable() {
     // Free choice: every board is allowed, but won ones stay unclickable.
     allow_any_board(&mut app, hyperboard);
 
-    assert_eq!(app.world().get::<Board>(won).unwrap().winner(), Some(RED));
+    assert_eq!(
+        app.world().get::<Board>(won).unwrap().winner(),
+        Some(player(&app, RED))
+    );
     assert!(!clickable(&app, won));
     assert!(clickable(&app, other));
 }
@@ -267,20 +295,31 @@ fn three_won_boards_in_a_row_win_the_hyperboard() {
     first_player_wins_game(&mut app, hyperboard);
 
     let state = app.world().get::<Hyperboard>(hyperboard).unwrap();
-    assert_eq!(state.winner(), Some(RED));
+    assert_eq!(state.winner(), Some(player(&app, RED)));
     for row in 0..GRID_SIZE {
         for col in 0..GRID_SIZE {
             let board = child_at(&mut app, hyperboard, col, row);
             assert!(!clickable(&app, board));
         }
     }
+    let red = player(&app, RED);
     let overlays = app
         .world_mut()
-        .query_filtered::<&Sprite, With<WinnerOverlay>>()
+        .query_filtered::<(&Sprite, &PlayerMark), With<WinnerOverlay>>()
         .iter(app.world())
-        .map(|sprite| sprite.color)
+        .map(|(sprite, mark)| (sprite.color, *mark))
         .collect::<Vec<_>>();
-    assert_eq!(overlays, vec![RED]);
+    // The winner's color, with the winner's icon on top.
+    assert_eq!(
+        overlays,
+        vec![(
+            RED,
+            PlayerMark {
+                player: Some(red),
+                muted: false
+            }
+        )]
+    );
 }
 
 #[test]
@@ -324,7 +363,7 @@ fn a_turn_cannot_end_without_a_move() {
     let center = child_at(&mut app, hyperboard, 1, 1);
     let cell = child_at(&mut app, center, 0, 0);
     click(&mut app, cell);
-    assert_eq!(pressed(&app, cell), Some(RED));
+    assert_eq!(pressed(&app, cell), Some(player(&app, RED)));
     click(&mut app, cell);
     end_turn_now(&mut app, hyperboard);
     assert_eq!(turn(&app, hyperboard).number, 1);
@@ -346,7 +385,7 @@ fn full_board_without_winner_is_disabled() {
     // Cells keep their colors (drawn muted, like every disabled board), and
     // no square covers them.
     let top_left = child_at(&mut app, board, 0, 0);
-    assert_eq!(pressed(&app, top_left), Some(RED));
+    assert_eq!(pressed(&app, top_left), Some(player(&app, RED)));
     let children: Vec<Entity> = app.world().get::<Children>(board).unwrap().iter().collect();
     assert!(
         children
@@ -386,11 +425,11 @@ fn click_board_win_and_game_win_resolve_in_the_same_frame() {
 
     assert_eq!(
         app.world().get::<Board>(last_board).unwrap().winner(),
-        Some(RED)
+        Some(player(&app, RED))
     );
     assert_eq!(
         app.world().get::<Hyperboard>(hyperboard).unwrap().winner(),
-        Some(RED)
+        Some(player(&app, RED))
     );
 }
 
@@ -499,7 +538,10 @@ fn a_move_that_wins_the_board_it_points_to_allows_any_open_board() {
     let cell = child_at(&mut app, board, 0, 0);
     play_anywhere(&mut app, hyperboard, cell);
 
-    assert_eq!(app.world().get::<Board>(board).unwrap().winner(), Some(RED));
+    assert_eq!(
+        app.world().get::<Board>(board).unwrap().winner(),
+        Some(player(&app, RED))
+    );
     assert_eq!(next_board(&app, hyperboard), None);
 }
 

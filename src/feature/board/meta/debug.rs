@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use super::super::component::Board;
 use super::super::system::BoardSystems;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
+use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
@@ -15,13 +16,16 @@ pub fn register(app: &mut App) {
     );
 }
 
-fn log_board_changes(boards: Query<(Entity, &Board), Changed<Board>>) {
+fn log_board_changes(boards: Query<(Entity, &Board), Changed<Board>>, players: Query<&Player>) {
     for (entity, board) in &boards {
         info!(
             "[boards] Board {entity} turn={:?} current={:?} winner={:?}",
             board.turn,
             board.current,
-            board.winner.map(|c| c.to_srgba())
+            board
+                .winner
+                .and_then(|p| players.get(p).ok())
+                .map(|p| p.symbol)
         );
     }
 }

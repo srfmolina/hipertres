@@ -27,7 +27,7 @@ use bevy::prelude::*;
 pub use component::{Board, BoardControl, GridPosition, Turn};
 pub use event::ClearTurnPress;
 pub use meta::constant::{BOARD_SIZE, GRID_SIZE};
-pub use rule::winning_color;
+pub use rule::three_in_a_row;
 pub use spawn::spawn_board;
 pub use system::BoardSystems;
 

@@ -15,6 +15,7 @@ mod common;
 mod debug;
 mod game;
 mod hyperboard;
+mod player;
 
 /// Every Hipertres feature, bundled like Bevy's own `DefaultPlugins`.
 ///
@@ -28,6 +29,7 @@ impl PluginGroup for FeaturePlugins {
             // Diagnostics, all off unless turned on (see `debug/mod.rs`).
             .add(debug::DebugPlugin)
             .add(camera::CameraPlugin)
+            .add(player::PlayerPlugin)
             .add(cell::CellPlugin)
             .add(board::BoardPlugin)
             .add(hyperboard::HyperboardPlugin)

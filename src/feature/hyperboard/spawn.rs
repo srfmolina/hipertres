@@ -16,7 +16,7 @@ pub fn spawn_hyperboard(
 ) -> Entity {
     let turn = Turn {
         number: 1,
-        color: hyperboard.player_for_turn(1),
+        player: hyperboard.player_for_turn(1),
     };
     let root = commands.spawn((hyperboard, turn, transform)).id();
     for row in 0..GRID_SIZE {

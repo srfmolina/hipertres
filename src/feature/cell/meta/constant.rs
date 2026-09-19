@@ -7,7 +7,3 @@ pub const CELL_SIZE: f32 = 150.0;
 
 /// Color of a cell that is not pressed.
 pub const UNPRESSED_COLOR: Color = Color::WHITE;
-
-/// Color of a pressed cell when its parent doesn't choose one
-/// (see `PressedColor` in `cell/component.rs`).
-pub const DEFAULT_PRESSED_COLOR: Color = Color::srgb(0.25, 0.55, 0.95);

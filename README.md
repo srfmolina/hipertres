@@ -4,8 +4,10 @@ A 2D board game written in [Rust](https://www.rust-lang.org/) with the
 [Bevy](https://bevy.org/) game engine.
 
 > **Status:** early development. A 3×3 hyperboard of 3×3 boards for two
-> players: press a cell, end the turn with **Space** (you can't pass without
-> pressing a cell). Win three boards in a row to win the game.
+> players, **o** (blue) and **x** (orange): press a cell, end the turn with
+> **Space** (you can't pass without pressing a cell). Pressed cells and won
+> boards show their player's color and symbol. Win three boards in a row to
+> win the game.
 >
 > The first move is played in the center board. After that, the cell you press
 > sends the next player to the board at the same position; if that board is
@@ -54,10 +56,11 @@ src/
     ├── common/          Shared code that no feature owns (e.g. `mute` colors)
     ├── debug/           DebugPlugin: switchable diagnostics (see Debugging)
     ├── camera/          CameraPlugin: 2D camera and background color
+    ├── player/          PlayerPlugin: players (symbol, color) and their icons
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
     ├── board/           BoardPlugin: 3×3 cells, one press per turn, three in a row
     ├── hyperboard/      HyperboardPlugin: 3×3 boards, players, turns, game winner
-    └── game/            GamePlugin: spawns the hyperboard at startup
+    └── game/            GamePlugin: spawns the players and the hyperboard at startup
 ```
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
@@ -82,7 +85,7 @@ other features may use, so the top of `mod.rs` is the feature's API. Items
 only the feature itself uses are `pub(super)`.
 
 A type goes in the feature that **defines what it means**, even if other
-features use it: `PressedColor` is in `cell` because cells read it, although
+features use it: `ActivePlayer` is in `cell` because cells read it, although
 boards insert it. `common/` is only for code that no feature owns.
 
 Small features (`camera`, `game`) stay in a single `mod.rs`.

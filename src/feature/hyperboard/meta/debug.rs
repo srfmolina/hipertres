@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use super::super::component::Hyperboard;
 use crate::feature::board::{BoardSystems, Turn};
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
+use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
@@ -22,15 +23,18 @@ type HyperboardOrTurnChanged = Or<(Changed<Hyperboard>, Changed<Turn>)>;
 /// Logs whenever the hyperboard or its turn changes.
 fn log_hyperboard_changes(
     hyperboards: Query<(Entity, &Hyperboard, &Turn), HyperboardOrTurnChanged>,
+    players: Query<&Player>,
 ) {
+    // The player's symbol, for the log ('?' if the entity isn't a player).
+    let symbol = |player: Entity| players.get(player).map_or('?', |p| p.symbol);
     for (entity, hyperboard, turn) in &hyperboards {
         info!(
             "[hyperboard] Hyperboard {entity} turn={} player={:?} active_board={:?} next_board={:?} winner={:?}",
             turn.number,
-            turn.color.to_srgba(),
+            symbol(turn.player),
             hyperboard.active_board,
             hyperboard.next_board,
-            hyperboard.winner().map(|c| c.to_srgba())
+            hyperboard.winner().map(symbol)
         );
     }
 }

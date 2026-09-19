@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use super::super::component::Cell;
 use super::super::system::update_cell_colors;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
+use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
     // Creates default settings (all off) if `DebugPlugin` hasn't added them,
@@ -18,11 +19,16 @@ pub fn register(app: &mut App) {
     );
 }
 
-fn log_cell_changes(cells: Query<(Entity, &Cell, &Sprite), Changed<Cell>>) {
+fn log_cell_changes(
+    cells: Query<(Entity, &Cell, &Sprite), Changed<Cell>>,
+    players: Query<&Player>,
+) {
     for (entity, cell, sprite) in &cells {
         info!(
-            "[cells] Cell {entity} pressed={:?} color={:?}",
-            cell.pressed.map(|c| c.to_srgba()),
+            "[cells] Cell {entity} pressed_by={:?} color={:?}",
+            cell.pressed
+                .and_then(|p| players.get(p).ok())
+                .map(|p| p.symbol),
             sprite.color.to_srgba()
         );
     }

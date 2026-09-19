@@ -12,11 +12,12 @@ mod system;
 
 use bevy::prelude::*;
 
-pub use component::{Cell, Muted, PressedColor};
+pub use component::{ActivePlayer, Cell, Muted};
 pub use message::CellClicked;
 pub use meta::constant::CELL_SIZE;
 pub use system::CellSystems;
 
+use super::player::PlayerSystems;
 use system::{apply_clicks, send_cell_clicks, update_cell_colors};
 
 /// Makes every `Cell` entity clickable and keeps its color in sync.
@@ -34,7 +35,12 @@ impl Plugin for CellPlugin {
             // Visuals run in `PostUpdate`, after all game logic in `Update`
             // (e.g. a board unpressing a cell), so colors always match the
             // final state of the frame.
-            .add_systems(PostUpdate, update_cell_colors);
+            .add_systems(
+                PostUpdate,
+                // Set the cells' `PlayerMark` before the player feature
+                // draws the icons, so they show up in the same frame.
+                update_cell_colors.before(PlayerSystems::Marks),
+            );
         meta::debug::register(app);
     }
 }
