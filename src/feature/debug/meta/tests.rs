@@ -1,4 +1,5 @@
-use super::*;
+// `super::super` is `debug/mod.rs`: its plugin and its public API.
+use super::super::*;
 
 #[test]
 fn empty_value_turns_everything_off() {

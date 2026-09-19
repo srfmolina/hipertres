@@ -10,6 +10,8 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 mod board;
 mod camera;
 mod cell;
+// Not a feature (no plugin): shared code that no feature owns.
+mod common;
 mod debug;
 mod game;
 mod hyperboard;

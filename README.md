@@ -51,6 +51,7 @@ src/
 ├── main.rs              Builds the Bevy App: DefaultPlugins + FeaturePlugins
 └── feature/
     ├── mod.rs           FeaturePlugins: plugin group with every feature
+    ├── common/          Shared code that no feature owns (e.g. `mute` colors)
     ├── debug/           DebugPlugin: switchable diagnostics (see Debugging)
     ├── camera/          CameraPlugin: 2D camera and background color
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
@@ -61,14 +62,30 @@ src/
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
 following the [official plugin guide](https://bevy.org/learn/quick-start/getting-started/plugins/).
-A feature folder can contain:
+Inside a feature, each kind of Bevy item has its own file, so you know where
+to look. A feature only has the files it needs:
 
-| File          | Contents |
-|---------------|----------|
-| `mod.rs`      | The plugin, its components and systems |
-| `constant.rs` | Tunable values (sizes, colors...) |
-| `debug.rs`    | The feature's diagnostics, on its own debug channel |
-| `tests.rs`    | The feature's unit tests |
+| File           | Contents |
+|----------------|----------|
+| `mod.rs`       | The plugin, and the feature's public API (`pub use`) |
+| `component.rs` | Components |
+| `resource.rs`  | Resources |
+| `message.rs`   | Messages (read with `MessageReader`) |
+| `event.rs`     | Events (handled by observers) |
+| `system.rs`    | Systems, observers, system sets, and helpers used only by them |
+| `spawn.rs`     | `spawn_*` functions that build entities (not systems) |
+| `rule.rs`      | Game rules as plain functions (not systems) |
+| `meta/`        | Code *about* the feature: `constant.rs` (tunable values), `debug.rs` (diagnostics on its debug channel), `tests.rs` |
+
+Every file is a private module. `mod.rs` re-exports with `pub use` the names
+other features may use, so the top of `mod.rs` is the feature's API. Items
+only the feature itself uses are `pub(super)`.
+
+A type goes in the feature that **defines what it means**, even if other
+features use it: `PressedColor` is in `cell` because cells read it, although
+boards insert it. `common/` is only for code that no feature owns.
+
+Small features (`camera`, `game`) stay in a single `mod.rs`.
 
 To add a feature, create its folder and register its plugin in
 `FeaturePlugins` (`src/feature/mod.rs`). `main.rs` doesn't change.
@@ -88,10 +105,10 @@ a game win all resolve in the same frame.
 cargo test
 ```
 
-Tests live in a `tests.rs` file next to the code they test, declared at the
-bottom of `mod.rs` with `#[cfg(test)] mod tests;`. Since `tests` is a child
-module, it can test private functions too, and it is only compiled for
-`cargo test`.
+Each feature's tests live in its `meta/tests.rs`, declared in `meta/mod.rs`
+with `#[cfg(test)] mod tests;`. Since `tests` is inside the feature, it can
+test the feature's private items too, and it is only compiled for
+`cargo test`. Tests for `common/` are in `common/tests.rs`.
 
 ## Debugging
 
@@ -114,8 +131,8 @@ HIPERTRES_DEBUG=picking,cells cargo run
 HIPERTRES_DEBUG=all cargo run
 ```
 
-To add a channel, add a variant to `DebugChannel` (`src/feature/debug/mod.rs`)
-with its name and key. Then, in the feature's `debug.rs`, add systems with
+To add a channel, add a variant to `DebugChannel` (`src/feature/debug/resource.rs`)
+with its name and key. Then, in the feature's `meta/debug.rs`, add systems with
 `.run_if(debug_on(DebugChannel::YourChannel))`.
 
 ## Tech stack

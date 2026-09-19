@@ -1,5 +1,11 @@
-use super::*;
-use crate::feature::cell::{CellClicked, CellPlugin, Muted, mute};
+// `super::super` is `board/mod.rs`: its plugin and its public API. The
+// private items tested here are imported one by one from their files.
+use super::super::component::WinnerOverlay;
+use super::super::spawn::cell_position;
+use super::super::*;
+use super::constant::CELL_GAP;
+use crate::feature::cell::{CELL_SIZE, Cell, CellClicked, CellPlugin, Muted, PressedColor};
+use crate::feature::common::color::mute;
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);

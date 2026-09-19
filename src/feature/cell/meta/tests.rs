@@ -1,4 +1,7 @@
-use super::*;
+// `super::super` is `cell/mod.rs`: its plugin and its public API.
+use super::super::*;
+use super::constant::{DEFAULT_PRESSED_COLOR, UNPRESSED_COLOR};
+use crate::feature::common::color::mute;
 
 /// An App with only the cell feature: no window or rendering needed.
 fn test_app() -> App {
@@ -102,15 +105,6 @@ fn muted_cell_is_drawn_with_muted_colors() {
     app.world_mut().entity_mut(entity).insert(Muted(false));
     app.update();
     assert_eq!(color_of(&app, entity), DEFAULT_PRESSED_COLOR);
-}
-
-#[test]
-fn mute_makes_white_darker_and_colors_less_saturated() {
-    let white = mute(Color::WHITE).to_srgba();
-    assert!(white.red < 1.0);
-
-    let blue = DEFAULT_PRESSED_COLOR;
-    assert!(mute(blue).saturation() < blue.saturation());
 }
 
 #[test]

@@ -2,10 +2,11 @@
 
 use bevy::prelude::*;
 
-use super::{Cell, update_cell_colors};
+use super::super::component::Cell;
+use super::super::system::update_cell_colors;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
 
-pub(super) fn register(app: &mut App) {
+pub fn register(app: &mut App) {
     // Creates default settings (all off) if `DebugPlugin` hasn't added them,
     // so cells work even without the debug feature.
     app.init_resource::<DebugSettings>().add_systems(

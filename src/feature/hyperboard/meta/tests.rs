@@ -1,5 +1,7 @@
-use super::*;
-use crate::feature::board::BoardPlugin;
+// `super::super` is `hyperboard/mod.rs`: its plugin and its public API.
+use super::super::component::WinnerOverlay;
+use super::super::*;
+use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition, Turn};
 use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);

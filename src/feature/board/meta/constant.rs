@@ -1,7 +1,4 @@
 //! Tunable values for the board.
-//!
-//! This module is private to `board` (declared as `mod constant;`, without
-//! `pub`), so `pub` here only means "visible inside the board feature".
 
 use crate::feature::cell::CELL_SIZE;
 

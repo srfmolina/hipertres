@@ -2,10 +2,11 @@
 
 use bevy::prelude::*;
 
-use super::{Board, BoardSystems};
+use super::super::component::Board;
+use super::super::system::BoardSystems;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
 
-pub(super) fn register(app: &mut App) {
+pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
         Update,
         log_board_changes

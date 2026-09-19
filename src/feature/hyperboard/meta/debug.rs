@@ -2,11 +2,11 @@
 
 use bevy::prelude::*;
 
-use super::Hyperboard;
+use super::super::component::Hyperboard;
 use crate::feature::board::{BoardSystems, Turn};
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
 
-pub(super) fn register(app: &mut App) {
+pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
         Update,
         log_hyperboard_changes
