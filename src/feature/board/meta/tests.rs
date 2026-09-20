@@ -6,6 +6,7 @@ use super::super::*;
 use super::constant::CELL_GAP;
 use crate::feature::cell::{ActivePlayer, CELL_SIZE, Cell, CellClicked, CellPlugin, Muted};
 use crate::feature::common::color::mute;
+use crate::feature::game_loop::Turn;
 use crate::feature::player::{Player, PlayerColor, PlayerMark, PlayerPlugin};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);

@@ -133,3 +133,39 @@ fn restarting_despawns_the_old_match_and_setup_builds_a_new_one() {
         "restart must spawn a new match, not keep the old one"
     );
 }
+
+#[test]
+#[should_panic(expected = "at least one player")]
+fn a_turn_order_needs_at_least_one_player() {
+    TurnOrder::new(Vec::new());
+}
+
+#[test]
+fn players_take_turns_in_order_and_start_again() {
+    let mut app = test_app();
+    let a = app.world_mut().spawn_empty().id();
+    let b = app.world_mut().spawn_empty().id();
+    let order = TurnOrder::new(vec![a, b]);
+
+    assert_eq!(order.player_for_turn(1), a);
+    assert_eq!(order.player_for_turn(2), b);
+    assert_eq!(order.player_for_turn(3), a);
+    assert_eq!(
+        order.first_turn(),
+        Turn {
+            number: 1,
+            player: a
+        }
+    );
+}
+
+#[test]
+fn a_turn_brings_a_pending_move_with_it() {
+    let mut app = test_app();
+    let player = app.world_mut().spawn_empty().id();
+    let root = app.world_mut().spawn(Turn { number: 1, player }).id();
+    assert_eq!(
+        app.world().get::<PendingMove>(root),
+        Some(&PendingMove(None))
+    );
+}

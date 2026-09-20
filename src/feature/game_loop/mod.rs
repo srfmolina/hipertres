@@ -8,6 +8,7 @@
 
 // Every file of the feature is a private module. The `pub use` lines below
 // are the feature's public API: the only names other features can use.
+mod component;
 mod meta;
 mod state;
 mod system;
@@ -17,6 +18,10 @@ use bevy::prelude::*;
 // `StatesPlugin` is not in Bevy's prelude, unlike the rest of the state API.
 use bevy::state::app::StatesPlugin;
 
+// `PendingMove` isn't read by anything yet: a later task in this plan has
+// `board`/`hyperboard` write it and the loop's `TurnPhase::EndTurn` read it.
+#[allow(unused_imports)]
+pub use component::{PendingMove, Turn, TurnOrder};
 pub use state::GameState;
 pub use system::{DrawPhase, TurnPhase};
 

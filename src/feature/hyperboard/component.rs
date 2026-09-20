@@ -5,15 +5,14 @@ use bevy::prelude::*;
 use crate::feature::board::{GRID_SIZE, GridPosition};
 
 /// The hyperboard's state. Its boards are its children, and it also holds the
-/// game's `Turn`.
+/// game's `Turn` (defined by the game loop feature).
 ///
-/// The fields are `pub(super)`: visible in the whole hyperboard feature, but
-/// not to other features.
+/// The type and its fields are `pub(super)`: visible in the whole hyperboard
+/// feature, but not to other features. Other features go through
+/// `spawn_hyperboard` and `Hyperboard::winner`.
 #[derive(Component, Debug)]
 #[require(Transform, Visibility, Name = Name::new("Hyperboard"))]
-pub struct Hyperboard {
-    /// Player entities, in turn order.
-    pub(super) players: Vec<Entity>,
+pub(super) struct Hyperboard {
     /// The board with the cell pressed during the current turn, if any.
     pub(super) active_board: Option<Entity>,
     /// The board played in the turn that just ended, until the next board is
@@ -26,19 +25,9 @@ pub struct Hyperboard {
     pub(super) winner: Option<Entity>,
 }
 
-impl Hyperboard {
-    /// A hyperboard for these players (see `spawn_players` in the player
-    /// feature), in turn order. Panics if there are none.
-    ///
-    /// There is no `Default`: players are entities, so someone with
-    /// `Commands` (the game feature) has to spawn them first.
-    pub fn new(players: Vec<Entity>) -> Self {
-        assert!(
-            !players.is_empty(),
-            "a hyperboard needs at least one player"
-        );
+impl Default for Hyperboard {
+    fn default() -> Self {
         Self {
-            players,
             active_board: None,
             played_board: None,
             // The first turn is played in the center board.
@@ -49,17 +38,12 @@ impl Hyperboard {
             winner: None,
         }
     }
+}
 
+impl Hyperboard {
     /// The player who won the game, if any.
     pub fn winner(&self) -> Option<Entity> {
         self.winner
-    }
-
-    /// The player who plays turn `number` (turns start at 1): players take
-    /// turns in list order, starting again from the first.
-    pub fn player_for_turn(&self, number: u32) -> Entity {
-        let index = (number as usize).saturating_sub(1) % self.players.len();
-        self.players[index]
     }
 }
 

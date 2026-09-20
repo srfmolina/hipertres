@@ -5,20 +5,21 @@ use bevy::prelude::*;
 
 use super::component::Hyperboard;
 use super::meta::constant::{BOARD_GAP, BOARD_SCALE};
-use crate::feature::board::{BOARD_SIZE, GRID_SIZE, GridPosition, Turn, spawn_board};
+use crate::feature::board::{BOARD_SIZE, GRID_SIZE, GridPosition, spawn_board};
+use crate::feature::game_loop::TurnOrder;
 
-/// Spawns a hyperboard with its 9 boards as children, starting at turn 1, and
-/// returns the hyperboard entity.
+/// Spawns a hyperboard with its 9 boards as children, starting at turn 1,
+/// and returns the hyperboard entity. The hyperboard entity is the match
+/// root: it carries the game loop's `TurnOrder` and `Turn`.
 pub fn spawn_hyperboard(
     commands: &mut Commands,
-    hyperboard: Hyperboard,
+    turn_order: TurnOrder,
     transform: Transform,
 ) -> Entity {
-    let turn = Turn {
-        number: 1,
-        player: hyperboard.player_for_turn(1),
-    };
-    let root = commands.spawn((hyperboard, turn, transform)).id();
+    let turn = turn_order.first_turn();
+    let root = commands
+        .spawn((Hyperboard::default(), turn_order, turn, transform))
+        .id();
     for row in 0..GRID_SIZE {
         for col in 0..GRID_SIZE {
             let transform = Transform::from_translation(board_position(col, row).extend(0.0))

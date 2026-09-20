@@ -2,21 +2,6 @@
 
 use bevy::prelude::*;
 
-/// The game's current turn. It goes on a board's **parent** (the hyperboard),
-/// which tells its boards what turn it is by changing it.
-///
-/// It's defined here, in the board feature, because it is what a board needs
-/// from its parent. The hyperboard uses the board feature, not the other way
-/// round.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct Turn {
-    /// Increases by one when a turn ends. Boards compare it to the last value
-    /// they saw to notice that a turn ended.
-    pub number: u32,
-    /// The player whose turn it is. The board's cells get pressed by them.
-    pub player: Entity,
-}
-
 /// What a board's parent allows it to do. It goes on the board, and only the
 /// parent should change it.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]

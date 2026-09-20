@@ -1,7 +1,8 @@
 //! A board: a 3×3 grid of cells where players try to get three in a row.
 //!
 //! A board is an entity whose children are its 9 `Cell` entities. It follows
-//! the turns of its **parent** (the hyperboard), which holds a `Turn`:
+//! the turns of its **parent** (the hyperboard), which holds a `Turn`
+//! (`Turn` is defined by the game loop feature):
 //! - During a turn, only one of its cells can be pressed. Pressing another
 //!   one unpresses the previous one.
 //! - When the turn ends, the pressed cell is locked (it can't be clicked
@@ -24,7 +25,7 @@ mod system;
 
 use bevy::prelude::*;
 
-pub use component::{Board, BoardControl, GridPosition, Turn};
+pub use component::{Board, BoardControl, GridPosition};
 pub use event::ClearTurnPress;
 pub use meta::constant::{BOARD_SIZE, GRID_SIZE};
 pub use rule::three_in_a_row;

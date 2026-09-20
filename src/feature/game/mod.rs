@@ -8,8 +8,8 @@
 
 use bevy::prelude::*;
 
-use super::game_loop::GameState;
-use super::hyperboard::{Hyperboard, spawn_hyperboard};
+use super::game_loop::{GameState, TurnOrder};
+use super::hyperboard::spawn_hyperboard;
 use super::player::{DEFAULT_PLAYERS, spawn_players};
 
 pub struct GamePlugin;
@@ -46,11 +46,7 @@ fn spawn_game(mut commands: Commands, mut next_state: ResMut<NextState<GameState
     for &player in &players {
         commands.entity(player).insert(despawn_on_setup());
     }
-    let hyperboard = spawn_hyperboard(
-        &mut commands,
-        Hyperboard::new(players),
-        Transform::default(),
-    );
+    let hyperboard = spawn_hyperboard(&mut commands, TurnOrder::new(players), Transform::default());
     commands.entity(hyperboard).insert(despawn_on_setup());
     // Nothing else to set up, so the match starts right away. A future
     // setup screen would set `Playing` when the player presses "start".

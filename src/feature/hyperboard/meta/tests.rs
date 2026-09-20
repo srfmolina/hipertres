@@ -1,8 +1,9 @@
 // `super::super` is `hyperboard/mod.rs`: its plugin and its public API.
-use super::super::component::WinnerOverlay;
+use super::super::component::{Hyperboard, WinnerOverlay};
 use super::super::*;
-use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition, Turn};
+use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition};
 use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
+use crate::feature::game_loop::{Turn, TurnOrder};
 use crate::feature::player::{PlayerMark, PlayerPlugin, spawn_players};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -46,7 +47,7 @@ fn setup(colors: Vec<Color>) -> (App, Entity) {
                 let players = spawn_players(&mut commands, &symbols_and_colors);
                 let hyperboard = spawn_hyperboard(
                     &mut commands,
-                    Hyperboard::new(players.clone()),
+                    TurnOrder::new(players.clone()),
                     Transform::default(),
                 );
                 (hyperboard, colors.into_iter().zip(players).collect())
@@ -199,12 +200,6 @@ fn hyperboard_spawns_nine_boards_as_children() {
     assert_eq!(app.world().get::<Children>(hyperboard).unwrap().len(), 9);
     let board = child_at(&mut app, hyperboard, 2, 2);
     assert!(app.world().get::<Board>(board).is_some());
-}
-
-#[test]
-#[should_panic(expected = "at least one player")]
-fn hyperboard_needs_at_least_one_player() {
-    Hyperboard::new(Vec::new());
 }
 
 #[test]

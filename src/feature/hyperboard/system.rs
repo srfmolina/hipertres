@@ -6,8 +6,9 @@ use super::component::{Hyperboard, WinnerOverlay};
 use super::message::EndTurnRequested;
 use super::meta::constant::{HYPERBOARD_SIZE, OVERLAY_Z};
 use crate::feature::board::{
-    Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, Turn, three_in_a_row,
+    Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, three_in_a_row,
 };
+use crate::feature::game_loop::{Turn, TurnOrder};
 use crate::feature::player::{PlayerColor, PlayerMark};
 
 /// The hyperboard's steps in `Update`. See "Order of a frame" above.
@@ -38,17 +39,17 @@ pub(super) fn request_end_turn_on_key(
 /// (a player can't pass).
 pub(super) fn end_requested_turns(
     mut requests: MessageReader<EndTurnRequested>,
-    mut hyperboards: Query<(&mut Hyperboard, &mut Turn)>,
+    mut hyperboards: Query<(&mut Hyperboard, &TurnOrder, &mut Turn)>,
 ) {
     for request in requests.read() {
-        let Ok((mut hyperboard, mut turn)) = hyperboards.get_mut(request.hyperboard) else {
+        let Ok((mut hyperboard, order, mut turn)) = hyperboards.get_mut(request.hyperboard) else {
             continue;
         };
         if hyperboard.winner.is_some() || hyperboard.active_board.is_none() {
             continue;
         }
         turn.number += 1;
-        turn.player = hyperboard.player_for_turn(turn.number);
+        turn.player = order.player_for_turn(turn.number);
         hyperboard.played_board = hyperboard.active_board.take();
     }
 }

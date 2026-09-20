@@ -45,7 +45,6 @@ mod system;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 
-pub use component::Hyperboard;
 pub use message::EndTurnRequested;
 pub use spawn::spawn_hyperboard;
 pub use system::HyperboardSystems;

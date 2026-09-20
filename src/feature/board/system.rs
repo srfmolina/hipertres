@@ -5,12 +5,13 @@
 
 use bevy::prelude::*;
 
-use super::component::{Board, BoardControl, GridPosition, Locked, Turn, WinnerOverlay};
+use super::component::{Board, BoardControl, GridPosition, Locked, WinnerOverlay};
 use super::event::ClearTurnPress;
 use super::meta::constant::{BOARD_SIZE, GRID_SIZE, OVERLAY_Z};
 use super::rule::three_in_a_row;
 use crate::feature::cell::{ActivePlayer, Cell, Muted};
 use crate::feature::common::color::mute;
+use crate::feature::game_loop::Turn;
 use crate::feature::player::{PlayerColor, PlayerMark};
 
 /// The groups of board systems, in the order they run each frame.

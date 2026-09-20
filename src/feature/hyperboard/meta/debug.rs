@@ -3,8 +3,9 @@
 use bevy::prelude::*;
 
 use super::super::component::Hyperboard;
-use crate::feature::board::{BoardSystems, Turn};
+use crate::feature::board::BoardSystems;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
+use crate::feature::game_loop::Turn;
 use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
