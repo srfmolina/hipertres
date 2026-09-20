@@ -1,4 +1,4 @@
-//! The board's systems, observers and system sets.
+//! The board's systems and observers.
 //!
 //! `end_turn`, `overlay_color` and `overlay_visibility` are not systems, but
 //! helpers of the systems here, so they stay next to them.

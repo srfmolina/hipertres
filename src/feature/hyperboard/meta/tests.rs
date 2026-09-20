@@ -38,11 +38,8 @@ fn setup(colors: Vec<Color>) -> (App, Entity) {
         BoardPlugin,
         HyperboardPlugin,
     ));
-    // Keyboard state, normally created by `DefaultPlugins` (the Space key
-    // system reads it). Nothing is pressed in tests: they call `end_turn`.
-    // Needed before the first `app.update()` below: once playing, the game
-    // loop's restart system reads it every frame.
-    app.init_resource::<ButtonInput<KeyCode>>();
+    // `GameLoopPlugin` provides the keyboard state (the Space key system
+    // reads it). Nothing is pressed in tests: they call `end_turn`.
     // The phases only run while playing.
     start_playing(&mut app);
     // Cached systems can't capture variables, so `colors` goes in as the
@@ -596,8 +593,9 @@ fn winning_the_game_finishes_the_match_and_freezes_the_boards() {
         GameState::Finished
     );
 
-    // No phase runs any more, so a click changes nothing. Cell (2, 2) of
-    // the bottom-right board is one `first_player_wins_game` never touches.
+    // The boards are already frozen by `control_boards`, and from this
+    // frame no `TurnPhase` runs either. Cell (2, 2) of the bottom-right
+    // board is one `first_player_wins_game` never touches.
     let board = child_at(&mut app, hyperboard, 2, 2);
     let cell = child_at(&mut app, board, 2, 2);
     click(&mut app, cell);

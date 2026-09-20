@@ -1,4 +1,4 @@
-//! The cell's systems, observers and system sets.
+//! The cell's systems and observers.
 
 use bevy::prelude::*;
 

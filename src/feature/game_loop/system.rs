@@ -14,7 +14,9 @@ use super::state::GameState;
 /// come from. They all run only while `GameState::Playing`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TurnPhase {
-    /// Requests are collected: the end-turn key (game loop).
+    /// Requests are collected. Empty for now: the hyperboard still reads
+    /// the end-turn key itself, in `EndTurn` below. A later task moves that
+    /// reading here.
     Input,
     /// This frame's clicks are applied to the cells (cell). After this
     /// phase no cell changes because of a click until the next frame.
@@ -24,7 +26,11 @@ pub enum TurnPhase {
     /// One pressed cell in the whole match, recorded in `PendingMove`
     /// (hyperboard).
     OnePerTurn,
-    /// The turn advances, if a move is staged (game loop).
+    /// The turn advances, if a move is staged. For now this is the
+    /// hyperboard reading its own end-turn key and ending the turn
+    /// (`request_end_turn_on_key`, `end_requested_turns`); a later task
+    /// moves that here as the game loop's own systems, reading the request
+    /// collected in `Input` and `PendingMove` instead.
     EndTurn,
     /// Boards end the turn: they lock the pressed cell and check whether
     /// they are full or won (board). Every cell change of the frame has
@@ -35,6 +41,8 @@ pub enum TurnPhase {
     /// already checked its win.
     MatchResults,
     /// Boards apply what they are allowed to do to their cells (board).
+    /// Running after `MatchResults` means a `BoardControl` change made
+    /// there is applied in the same frame it happens.
     Control,
 }
 

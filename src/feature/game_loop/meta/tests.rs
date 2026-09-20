@@ -5,9 +5,8 @@ use super::constant::RESTART_KEY;
 /// An App with only the game loop: no window, no match, no other feature.
 fn test_app() -> App {
     let mut app = App::new();
+    // The plugin itself provides the keyboard state (see its `build`).
     app.add_plugins(GameLoopPlugin);
-    // Keyboard state, normally created by `DefaultPlugins`.
-    app.init_resource::<ButtonInput<KeyCode>>();
     app
 }
 

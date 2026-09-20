@@ -1,4 +1,4 @@
-//! The hyperboard's systems and system sets.
+//! The hyperboard's systems.
 
 use bevy::prelude::*;
 

@@ -25,7 +25,9 @@
 //! Every step of a turn runs in one of the game loop's phases, and Bevy
 //! guarantees the order between them. The authoritative list is `TurnPhase`
 //! in `game_loop/system.rs`; this feature owns `OnePerTurn` and
-//! `MatchResults`.
+//! `MatchResults`, and for now also `EndTurn` (it still reads its own
+//! end-turn key and ends the turn itself; a later task moves that into the
+//! game loop).
 
 // Every file of the feature is a private module. The `pub use` lines below
 // are the feature's public API: the only names other features can use.

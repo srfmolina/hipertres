@@ -45,6 +45,13 @@ impl Plugin for GameLoopPlugin {
         if !app.is_plugin_added::<StatesPlugin>() {
             app.add_plugins(StatesPlugin);
         }
+        // `DefaultPlugins` brings `InputPlugin`, which also
+        // `init_resource`s this, but headless test apps don't, and our own
+        // restart condition below reads it every frame in every state (not
+        // just `Playing`). Same idea as the `StatesPlugin` guard above and
+        // `init_resource::<DebugSettings>()` in the features'
+        // `meta/debug.rs`: a no-op in the real binary, required in tests.
+        app.init_resource::<ButtonInput<KeyCode>>();
         app.init_state::<GameState>()
             // The order of the whole game, in one place.
             .configure_sets(

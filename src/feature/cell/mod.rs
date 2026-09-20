@@ -24,7 +24,11 @@ pub struct CellPlugin;
 
 impl Plugin for CellPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<CellClicked>()
+        app
+            // Register the message type, so systems can send and read it.
+            .add_message::<CellClicked>()
+            // A *global observer*: runs every time a `Pointer<Click>` event
+            // is triggered on any entity (see `send_cell_clicks`).
             .add_observer(send_cell_clicks)
             // The game loop decides when clicks are applied: our systems
             // only say which step of a turn they belong to.

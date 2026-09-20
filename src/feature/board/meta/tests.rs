@@ -17,9 +17,6 @@ const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
 fn test_app() -> App {
     let mut app = App::new();
     app.add_plugins((PlayerPlugin, GameLoopPlugin, CellPlugin, BoardPlugin));
-    // Needed before the first `app.update()` below: once playing, the game
-    // loop's restart system reads it every frame.
-    app.init_resource::<ButtonInput<KeyCode>>();
     // The phases only run while playing.
     start_playing(&mut app);
     app
