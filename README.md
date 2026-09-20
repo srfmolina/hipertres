@@ -60,7 +60,7 @@ src/
     ├── player/          PlayerPlugin: players (symbol, color) and their icons
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
     ├── board/           BoardPlugin: 3×3 cells, one press per turn, three in a row
-    ├── hyperboard/      HyperboardPlugin: 3×3 boards, players, turns, game winner
+    ├── hyperboard/      HyperboardPlugin: 3×3 boards, one press per turn, where the next player plays, game winner
     └── game/            GamePlugin: spawns the players and the hyperboard when a match starts
 ```
 
@@ -88,8 +88,9 @@ only the feature itself uses are `pub(super)`.
 
 A type goes in the feature that **defines what it means**, even if other
 features use it: `ActivePlayer` is in `cell` because cells read it, although
-boards insert it; `Turn` is in `game_loop`, even though the hyperboard is
-what changes it. `common/` is only for code that no feature owns.
+boards insert it; `Turn` is in `game_loop` because the loop defines what a
+turn is, even though it lives on the hyperboard entity and the boards are
+what react to it. `common/` is only for code that no feature owns.
 
 Small features (`camera`, `game`) stay in a single `mod.rs`.
 

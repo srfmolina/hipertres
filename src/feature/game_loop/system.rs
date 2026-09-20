@@ -58,8 +58,9 @@ pub enum DrawPhase {
     Icons,
 }
 
-/// Sends the game back to `Setup`, which despawns the match (everything
-/// marked `DespawnOnEnter(GameState::Setup)`) and builds a new one.
+/// Sends the game back to `Setup`, which despawns the old match (everything
+/// marked with `despawn_on_setup()`'s `DespawnWhen`, see `game/mod.rs`) and
+/// builds a new one.
 ///
 /// `NextState` is a queue: the change happens in the next frame's
 /// `StateTransition`, never in the middle of `Update`.
