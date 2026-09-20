@@ -8,8 +8,10 @@ use crate::feature::board::{GRID_SIZE, GridPosition};
 /// game's `Turn` (defined by the game loop feature).
 ///
 /// The type and its fields are `pub(super)`: visible in the whole hyperboard
-/// feature, but not to other features. Other features go through
-/// `spawn_hyperboard` and `Hyperboard::winner`.
+/// feature, but not to other features. `spawn_hyperboard` is the feature's
+/// only entry point for the rest of the game; `winner()` is currently only
+/// called by this feature's own diagnostics and tests. Something above the
+/// feature that needs the winner will have to re-export the type first.
 #[derive(Component, Debug)]
 #[require(Transform, Visibility, Name = Name::new("Hyperboard"))]
 pub(super) struct Hyperboard {

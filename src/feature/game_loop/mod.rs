@@ -3,8 +3,9 @@
 //!
 //! This feature sits **under** the features it paces (cell, board,
 //! hyperboard). It defines the vocabulary they are written in — the phases
-//! of `TurnPhase`, the `GameState` — and never names a cell, a board or a
-//! hyperboard. `docs/05-the-game-loop.md` explains why.
+//! of `TurnPhase`, the `GameState` — and never depends on a cell, a board or
+//! a hyperboard: no import, no type, no system of theirs.
+//! `docs/05-the-game-loop.md` explains why.
 
 // Every file of the feature is a private module. The `pub use` lines below
 // are the feature's public API: the only names other features can use.
