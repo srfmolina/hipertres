@@ -3,7 +3,7 @@ use super::super::component::{Hyperboard, WinnerOverlay};
 use super::super::*;
 use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition};
 use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
-use crate::feature::game_loop::{Turn, TurnOrder};
+use crate::feature::game_loop::{GameLoopPlugin, GameState, Turn, TurnOrder, start_playing};
 use crate::feature::player::{PlayerMark, PlayerPlugin, spawn_players};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -31,10 +31,20 @@ fn player(app: &App, color: Color) -> Entity {
 /// window or rendering. Returns (app, hyperboard).
 fn setup(colors: Vec<Color>) -> (App, Entity) {
     let mut app = App::new();
-    app.add_plugins((PlayerPlugin, CellPlugin, BoardPlugin, HyperboardPlugin));
+    app.add_plugins((
+        PlayerPlugin,
+        GameLoopPlugin,
+        CellPlugin,
+        BoardPlugin,
+        HyperboardPlugin,
+    ));
     // Keyboard state, normally created by `DefaultPlugins` (the Space key
     // system reads it). Nothing is pressed in tests: they call `end_turn`.
+    // Needed before the first `app.update()` below: once playing, the game
+    // loop's restart system reads it every frame.
     app.init_resource::<ButtonInput<KeyCode>>();
+    // The phases only run while playing.
+    start_playing(&mut app);
     // Cached systems can't capture variables, so `colors` goes in as the
     // system's input instead.
     let (hyperboard, players) = app
@@ -564,4 +574,32 @@ fn idle_frames_do_not_mark_the_hyperboard_as_changed() {
         app.update();
     }
     assert_eq!(app.world().resource::<HyperboardChanges>().0, 0);
+}
+
+#[test]
+fn winning_the_game_finishes_the_match_and_freezes_the_boards() {
+    let (mut app, hyperboard) = setup(vec![RED, BLUE]);
+    first_player_wins_game(&mut app, hyperboard);
+    assert!(
+        app.world()
+            .get::<Hyperboard>(hyperboard)
+            .unwrap()
+            .winner()
+            .is_some()
+    );
+
+    // The transition queued by the win is applied at the start of the next
+    // frame, before `Update`.
+    app.update();
+    assert_eq!(
+        *app.world().resource::<State<GameState>>().get(),
+        GameState::Finished
+    );
+
+    // No phase runs any more, so a click changes nothing. Cell (2, 2) of
+    // the bottom-right board is one `first_player_wins_game` never touches.
+    let board = child_at(&mut app, hyperboard, 2, 2);
+    let cell = child_at(&mut app, board, 2, 2);
+    click(&mut app, cell);
+    assert_eq!(pressed(&app, cell), None);
 }

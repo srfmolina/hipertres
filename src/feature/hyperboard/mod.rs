@@ -2,8 +2,9 @@
 //!
 //! A hyperboard is an entity whose children are its 9 `Board` entities. It
 //! controls the game:
-//! - The players (a list of colors) and the `Turn`: which turn it is and
-//!   which player plays it. Ending a turn gives it to the next player.
+//! - Ending a turn: the game loop's `Turn` advances to the next player,
+//!   found in `TurnOrder` (both defined by the game loop feature; the
+//!   hyperboard is where they live, as the match root).
 //! - One pressed cell per turn in the **whole** hyperboard: pressing a cell in
 //!   another board unpresses the one pressed earlier in the turn.
 //! - A turn can only end after the player pressed a cell: no passing.
@@ -21,18 +22,10 @@
 //!
 //! # Order of a frame
 //!
-//! Every step runs in a named set, and Bevy guarantees the order between them:
-//!
-//! 1. `CellSystems::Clicks`: clicks are applied to cells.
-//! 2. `BoardSystems::Presses`, then `HyperboardSystems::Presses`: one press
-//!    per turn, in each board and then in the whole hyperboard.
-//! 3. `HyperboardSystems::EndTurn`: a request to end the turn is accepted or rejected.
-//! 4. `BoardSystems::Turns`: boards end the turn and check their win. Every
-//!    cell change of the frame has already happened.
-//! 5. `HyperboardSystems::Results`: the hyperboard checks its win, chooses
-//!    where the next player plays, and sets each board's `BoardControl`.
-//!    Every board has already checked its win.
-//! 6. `BoardSystems::Control`: boards apply their `BoardControl`.
+//! Every step of a turn runs in one of the game loop's phases, and Bevy
+//! guarantees the order between them. The authoritative list is `TurnPhase`
+//! in `game_loop/system.rs`; this feature owns `OnePerTurn` and
+//! `MatchResults`.
 
 // Every file of the feature is a private module. The `pub use` lines below
 // are the feature's public API: the only names other features can use.
@@ -47,9 +40,8 @@ use bevy::prelude::*;
 
 pub use message::EndTurnRequested;
 pub use spawn::spawn_hyperboard;
-pub use system::HyperboardSystems;
 
-use super::board::BoardSystems;
+use super::game_loop::TurnPhase;
 use meta::constant::END_TURN_KEY;
 use system::{
     check_for_winner, choose_next_board, control_boards, end_requested_turns,
@@ -60,37 +52,23 @@ pub struct HyperboardPlugin;
 
 impl Plugin for HyperboardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<EndTurnRequested>()
-            // Place our steps between the board's (see "Order of a frame" above).
-            .configure_sets(
-                Update,
+        app.add_message::<EndTurnRequested>().add_systems(
+            Update,
+            (
+                keep_one_press_per_turn.in_set(TurnPhase::OnePerTurn),
                 (
-                    HyperboardSystems::Presses
-                        .after(BoardSystems::Presses)
-                        .before(HyperboardSystems::EndTurn),
-                    HyperboardSystems::EndTurn.before(BoardSystems::Turns),
-                    HyperboardSystems::Results
-                        .after(BoardSystems::Turns)
-                        .before(BoardSystems::Control),
-                ),
-            )
-            .add_systems(
-                Update,
-                (
-                    keep_one_press_per_turn.in_set(HyperboardSystems::Presses),
-                    (
-                        // `input_just_pressed` is a run condition from Bevy: the
-                        // system only runs on the frame the key goes down.
-                        request_end_turn_on_key.run_if(input_just_pressed(END_TURN_KEY)),
-                        end_requested_turns,
-                    )
-                        .chain()
-                        .in_set(HyperboardSystems::EndTurn),
-                    (check_for_winner, choose_next_board, control_boards)
-                        .chain()
-                        .in_set(HyperboardSystems::Results),
-                ),
-            );
+                    // `input_just_pressed` is a run condition from Bevy: the
+                    // system only runs on the frame the key goes down.
+                    request_end_turn_on_key.run_if(input_just_pressed(END_TURN_KEY)),
+                    end_requested_turns,
+                )
+                    .chain()
+                    .in_set(TurnPhase::EndTurn),
+                (check_for_winner, choose_next_board, control_boards)
+                    .chain()
+                    .in_set(TurnPhase::MatchResults),
+            ),
+        );
         meta::debug::register(app);
     }
 }

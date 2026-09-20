@@ -26,8 +26,5 @@ pub enum GameState {
     /// Turns run. The only state in which `TurnPhase` runs.
     Playing,
     /// Somebody won. Clicks and turns are frozen, visuals are not.
-    // Not constructed yet: a later task in this plan sets it once the
-    // hyperboard's win is checked in `TurnPhase::MatchResults`.
-    #[allow(dead_code)]
     Finished,
 }

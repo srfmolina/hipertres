@@ -15,9 +15,8 @@ use bevy::prelude::*;
 pub use component::{ActivePlayer, Cell, Muted};
 pub use message::CellClicked;
 pub use meta::constant::CELL_SIZE;
-pub use system::CellSystems;
 
-use super::player::PlayerSystems;
+use super::game_loop::{DrawPhase, TurnPhase};
 use system::{apply_clicks, send_cell_clicks, update_cell_colors};
 
 /// Makes every `Cell` entity clickable and keeps its color in sync.
@@ -25,22 +24,15 @@ pub struct CellPlugin;
 
 impl Plugin for CellPlugin {
     fn build(&self, app: &mut App) {
-        app
-            // Register the message type, so systems can send and read it.
-            .add_message::<CellClicked>()
-            // A *global observer*: runs every time a `Pointer<Click>` event
-            // is triggered on any entity (see `send_cell_clicks`).
+        app.add_message::<CellClicked>()
             .add_observer(send_cell_clicks)
-            .add_systems(Update, apply_clicks.in_set(CellSystems::Clicks))
-            // Visuals run in `PostUpdate`, after all game logic in `Update`
-            // (e.g. a board unpressing a cell), so colors always match the
-            // final state of the frame.
-            .add_systems(
-                PostUpdate,
-                // Set the cells' `PlayerMark` before the player feature
-                // draws the icons, so they show up in the same frame.
-                update_cell_colors.before(PlayerSystems::Marks),
-            );
+            // The game loop decides when clicks are applied: our systems
+            // only say which step of a turn they belong to.
+            .add_systems(Update, apply_clicks.in_set(TurnPhase::Mark))
+            // Visuals run in `PostUpdate`, after all game logic, so colors
+            // always match the final state of the frame. The loop orders
+            // this phase before the player icons.
+            .add_systems(PostUpdate, update_cell_colors.in_set(DrawPhase::State));
         meta::debug::register(app);
     }
 }

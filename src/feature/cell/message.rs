@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 /// A *message*: "this cell was clicked". The click observer sends one per left
-/// click, and `apply_clicks` applies them during `CellSystems::Clicks`.
+/// click, and `apply_clicks` applies them during `TurnPhase::Mark`.
 ///
 /// Anything can send it to click a cell without a mouse, e.g. tests:
 /// `world.write_message(CellClicked { cell })`.

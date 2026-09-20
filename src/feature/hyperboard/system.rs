@@ -8,20 +8,8 @@ use super::meta::constant::{HYPERBOARD_SIZE, OVERLAY_Z};
 use crate::feature::board::{
     Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, three_in_a_row,
 };
-use crate::feature::game_loop::{Turn, TurnOrder};
+use crate::feature::game_loop::{GameState, Turn, TurnOrder};
 use crate::feature::player::{PlayerColor, PlayerMark};
-
-/// The hyperboard's steps in `Update`. See "Order of a frame" above.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum HyperboardSystems {
-    /// Keeps one pressed cell per turn in the whole hyperboard.
-    Presses,
-    /// Handles `EndTurnRequested`.
-    EndTurn,
-    /// Checks the hyperboard's win, chooses the next board to play in, and
-    /// sets each board's `BoardControl`.
-    Results,
-}
 
 pub(super) fn request_end_turn_on_key(
     hyperboards: Query<Entity, With<Hyperboard>>,
@@ -62,7 +50,7 @@ pub(super) fn keep_one_press_per_turn(
     mut hyperboards: Query<(&mut Hyperboard, &Children)>,
     boards: Query<&Board>,
 ) {
-    // This runs before `EndTurn` (see "Order of a frame"), so the boards'
+    // This runs in `TurnPhase::OnePerTurn`, before `EndTurn`, so the boards'
     // presses always belong to the current turn.
     for (mut hyperboard, children) in &mut hyperboards {
         let boards_with_press: Vec<Entity> = children
@@ -93,6 +81,7 @@ pub(super) fn keep_one_press_per_turn(
 /// After every turn, checks for three boards in a row won by the same player.
 pub(super) fn check_for_winner(
     mut commands: Commands,
+    mut next_state: ResMut<NextState<GameState>>,
     mut hyperboards: Query<(Entity, &mut Hyperboard, Ref<Turn>, &Children)>,
     boards: Query<(&Board, &GridPosition)>,
     player_colors: Query<&PlayerColor>,
@@ -100,7 +89,8 @@ pub(super) fn check_for_winner(
     for (entity, mut hyperboard, turn, children) in &mut hyperboards {
         // `Ref<Turn>` gives read access plus change detection: the turn
         // changed this frame means a turn just ended. The boards already
-        // checked their own wins earlier in this frame (`BoardSystems::Turns`).
+        // checked their own wins earlier in this frame
+        // (`TurnPhase::BoardResults`).
         if !turn.is_changed() || hyperboard.winner.is_some() {
             continue;
         }
@@ -114,6 +104,10 @@ pub(super) fn check_for_winner(
             continue;
         };
         hyperboard.winner = Some(winner);
+        // The match is over: from the next frame no `TurnPhase` runs, so
+        // clicks and turns are frozen. The boards are muted in this same
+        // frame, by `control_boards` below.
+        next_state.set(GameState::Finished);
         let color = player_colors.get(winner).map_or(Color::NONE, |c| c.0);
         commands.entity(entity).with_child((
             WinnerOverlay,

@@ -8,14 +8,6 @@ use super::meta::constant::UNPRESSED_COLOR;
 use crate::feature::common::color::mute;
 use crate::feature::player::{PlayerColor, PlayerMark};
 
-/// The cell's steps in `Update`, so other features can run after them.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CellSystems {
-    /// Applies this frame's clicks to the cells. After this step, no cell
-    /// changes because of a click until the next frame.
-    Clicks,
-}
-
 /// Observer: turns each left click into a `CellClicked` message.
 ///
 /// Observers are systems that run in reaction to an *event*, instead of
@@ -26,7 +18,7 @@ pub enum CellSystems {
 ///
 /// Picking runs early in the frame, at no step we control. So the observer
 /// doesn't change the cell itself: it sends a message, and `apply_clicks`
-/// applies it at a known point of the frame (`CellSystems::Clicks`).
+/// applies it at a known point of the frame (`TurnPhase::Mark`).
 pub(super) fn send_cell_clicks(click: On<Pointer<Click>>, mut clicks: MessageWriter<CellClicked>) {
     if click.button == PointerButton::Primary {
         clicks.write(CellClicked { cell: click.entity });

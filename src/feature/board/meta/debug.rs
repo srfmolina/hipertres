@@ -3,15 +3,15 @@
 use bevy::prelude::*;
 
 use super::super::component::Board;
-use super::super::system::BoardSystems;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
+use crate::feature::game_loop::TurnPhase;
 use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
         Update,
         log_board_changes
-            .after(BoardSystems::Turns)
+            .after(TurnPhase::BoardResults)
             .run_if(debug_on(DebugChannel::Boards)),
     );
 }

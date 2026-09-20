@@ -2,15 +2,22 @@
 use super::super::*;
 use super::constant::UNPRESSED_COLOR;
 use crate::feature::common::color::mute;
+use crate::feature::game_loop::{GameLoopPlugin, start_playing};
 use crate::feature::player::{Player, PlayerColor, PlayerMark, PlayerPlugin};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
 
-/// An App with the player and cell features: no window or rendering needed.
+/// An App with the player, game loop and cell features: no window or
+/// rendering needed.
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_plugins((PlayerPlugin, CellPlugin));
+    app.add_plugins((PlayerPlugin, GameLoopPlugin, CellPlugin));
+    // Needed before the first `app.update()` below: once playing, the game
+    // loop's restart system reads it every frame.
+    app.init_resource::<ButtonInput<KeyCode>>();
+    // The phases only run while playing.
+    start_playing(&mut app);
     app
 }
 

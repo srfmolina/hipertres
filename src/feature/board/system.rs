@@ -14,22 +14,6 @@ use crate::feature::common::color::mute;
 use crate::feature::game_loop::Turn;
 use crate::feature::player::{PlayerColor, PlayerMark};
 
-/// The groups of board systems, in the order they run each frame.
-/// A `SystemSet` is a label for a group of systems.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum BoardSystems {
-    /// Handles this frame's clicks: one pressed cell per board and turn.
-    Presses,
-    /// Follows the parent's `Turn`: ends turns and checks for wins. Runs
-    /// after `CellSystems::Clicks` and `Presses`, so the win check always
-    /// sees every cell change of the frame.
-    Turns,
-    /// Applies `BoardControl` to the cells and the winner square. A parent
-    /// that changes `BoardControl` between `Turns` and `Control` sees its
-    /// change applied in the same frame.
-    Control,
-}
-
 /// Enforces "one pressed cell per turn" inside each board.
 ///
 /// Cells toggle themselves when clicked. This system notices when a second

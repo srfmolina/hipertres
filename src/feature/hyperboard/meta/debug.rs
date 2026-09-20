@@ -3,16 +3,15 @@
 use bevy::prelude::*;
 
 use super::super::component::Hyperboard;
-use crate::feature::board::BoardSystems;
 use crate::feature::debug::{DebugChannel, DebugSettings, debug_on};
-use crate::feature::game_loop::Turn;
+use crate::feature::game_loop::{Turn, TurnPhase};
 use crate::feature::player::Player;
 
 pub fn register(app: &mut App) {
     app.init_resource::<DebugSettings>().add_systems(
         Update,
         log_hyperboard_changes
-            .after(BoardSystems::Control)
+            .after(TurnPhase::Control)
             .run_if(debug_on(DebugChannel::Hyperboard)),
     );
 }

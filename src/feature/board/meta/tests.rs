@@ -6,17 +6,22 @@ use super::super::*;
 use super::constant::CELL_GAP;
 use crate::feature::cell::{ActivePlayer, CELL_SIZE, Cell, CellClicked, CellPlugin, Muted};
 use crate::feature::common::color::mute;
-use crate::feature::game_loop::Turn;
+use crate::feature::game_loop::{GameLoopPlugin, Turn, start_playing};
 use crate::feature::player::{Player, PlayerColor, PlayerMark, PlayerPlugin};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
 const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
 
-/// An App with the player, cell and board features, and no window or
-/// rendering.
+/// An App with the player, game loop, cell and board features, and no
+/// window or rendering.
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_plugins((PlayerPlugin, CellPlugin, BoardPlugin));
+    app.add_plugins((PlayerPlugin, GameLoopPlugin, CellPlugin, BoardPlugin));
+    // Needed before the first `app.update()` below: once playing, the game
+    // loop's restart system reads it every frame.
+    app.init_resource::<ButtonInput<KeyCode>>();
+    // The phases only run while playing.
+    start_playing(&mut app);
     app
 }
 

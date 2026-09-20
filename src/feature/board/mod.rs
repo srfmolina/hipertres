@@ -30,38 +30,23 @@ pub use event::ClearTurnPress;
 pub use meta::constant::{BOARD_SIZE, GRID_SIZE};
 pub use rule::three_in_a_row;
 pub use spawn::spawn_board;
-pub use system::BoardSystems;
 
-use super::cell::CellSystems;
+use super::game_loop::TurnPhase;
 use system::{apply_board_control, clear_turn_press, follow_parent_turn, keep_one_press_per_turn};
 
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
-        app
-            // Sets let other features order their systems relative to ours,
-            // e.g. `.after(BoardSystems::Turns)`. `.chain()` runs them in order,
-            // and all of them run after the clicks of the frame are applied.
-            .configure_sets(
-                Update,
-                (
-                    BoardSystems::Presses,
-                    BoardSystems::Turns,
-                    BoardSystems::Control,
-                )
-                    .chain()
-                    .after(CellSystems::Clicks),
-            )
-            .add_systems(
-                Update,
-                (
-                    keep_one_press_per_turn.in_set(BoardSystems::Presses),
-                    follow_parent_turn.in_set(BoardSystems::Turns),
-                    apply_board_control.in_set(BoardSystems::Control),
-                ),
-            )
-            .add_observer(clear_turn_press);
+        app.add_systems(
+            Update,
+            (
+                keep_one_press_per_turn.in_set(TurnPhase::OnePerBoard),
+                follow_parent_turn.in_set(TurnPhase::BoardResults),
+                apply_board_control.in_set(TurnPhase::Control),
+            ),
+        )
+        .add_observer(clear_turn_press);
         meta::debug::register(app);
     }
 }
