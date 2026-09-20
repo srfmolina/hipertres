@@ -5,6 +5,7 @@
 //! inside the game loop feature".
 
 pub mod constant;
+pub mod debug;
 
 #[cfg(test)]
 pub(super) mod testing;

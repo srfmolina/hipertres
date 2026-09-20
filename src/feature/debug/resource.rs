@@ -20,15 +20,18 @@ pub enum DebugChannel {
     Boards,
     /// Hyperboard state changes (turn, player, active board, winner).
     Hyperboard,
+    /// The game loop: turn changes and state transitions.
+    GameLoop,
 }
 
 impl DebugChannel {
-    pub const ALL: [DebugChannel; 5] = [
+    pub const ALL: [DebugChannel; 6] = [
         Self::Input,
         Self::Picking,
         Self::Cells,
         Self::Boards,
         Self::Hyperboard,
+        Self::GameLoop,
     ];
 
     /// Name used in `HIPERTRES_DEBUG` and in log messages.
@@ -39,6 +42,7 @@ impl DebugChannel {
             Self::Cells => "cells",
             Self::Boards => "boards",
             Self::Hyperboard => "hyperboard",
+            Self::GameLoop => "gameloop",
         }
     }
 
@@ -50,6 +54,7 @@ impl DebugChannel {
             Self::Cells => KeyCode::F3,
             Self::Boards => KeyCode::F4,
             Self::Hyperboard => KeyCode::F5,
+            Self::GameLoop => KeyCode::F6,
         }
     }
 }

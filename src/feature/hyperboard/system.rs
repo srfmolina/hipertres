@@ -18,8 +18,8 @@ pub(super) fn keep_one_press_per_turn(
     mut hyperboards: Query<(&mut PendingMove, &Children), With<Hyperboard>>,
     boards: Query<&Board>,
 ) {
-    // This runs before `TurnPhase::EndTurn`, so the boards' presses always
-    // belong to the current turn.
+    // This runs in `TurnPhase::OnePerTurn`, before `TurnPhase::EndTurn`, so
+    // the boards' presses always belong to the current turn.
     for (mut pending, children) in &mut hyperboards {
         let boards_with_press: Vec<Entity> = children
             .iter()

@@ -85,11 +85,14 @@ impl Plugin for GameLoopPlugin {
             .add_systems(
                 Update,
                 (
+                    // `input_just_pressed` is a run condition from Bevy:
+                    // the system only runs on the frame the key goes down.
                     request_end_turn_on_key
                         .run_if(input_just_pressed(END_TURN_KEY))
                         .in_set(TurnPhase::Input),
                     end_requested_turns.in_set(TurnPhase::EndTurn),
                 ),
             );
+        meta::debug::register(app);
     }
 }
