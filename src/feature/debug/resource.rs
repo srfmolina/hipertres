@@ -10,7 +10,8 @@ use super::meta::constant::ENV_VAR;
 /// A group of related diagnostics that is turned on and off as a whole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DebugChannel {
-    /// Raw mouse buttons and cursor position, before any game logic.
+    /// Raw input before any game logic: mouse buttons with the cursor
+    /// position, and every key press.
     Input,
     /// Bevy picking: what the pointer is over, and pointer events on entities.
     Picking,

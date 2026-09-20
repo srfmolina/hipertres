@@ -12,6 +12,7 @@ pub(super) fn register(app: &mut App) {
         Update,
         (
             log_mouse_buttons.run_if(debug_on(DebugChannel::Input)),
+            log_keys.run_if(debug_on(DebugChannel::Input)),
             log_hover_changes.run_if(debug_on(DebugChannel::Picking)),
         ),
     )
@@ -25,6 +26,22 @@ fn log_mouse_buttons(buttons: Res<ButtonInput<MouseButton>>, windows: Query<&Win
     let cursor = windows.iter().next().and_then(Window::cursor_position);
     for button in buttons.get_just_pressed() {
         info!("[input] mouse {button:?} pressed, cursor={cursor:?}");
+    }
+}
+
+/// Logs every key the moment it goes down.
+///
+/// It logs *all* keys, not only the ones the game uses, so that a press
+/// which changes nothing still leaves a trace: Space while no cell is
+/// pressed can't end the turn (no passing), and a key the game ignores
+/// looks exactly the same in the log as one it handles. Without this, the
+/// only evidence of a rejected keypress would be the absence of anything.
+///
+/// `get_just_pressed` returns the keys that went down *this frame*, so
+/// holding a key logs once, not once per frame.
+fn log_keys(keys: Res<ButtonInput<KeyCode>>) {
+    for key in keys.get_just_pressed() {
+        info!("[input] key {key:?} pressed");
     }
 }
 

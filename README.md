@@ -132,7 +132,7 @@ are off by default.
 
 | Channel   | Key | Logs |
 |-----------|-----|------|
-| `input`   | F1  | Raw mouse buttons and cursor position |
+| `input`   | F1  | Raw mouse buttons, cursor position and key presses |
 | `picking` | F2  | What the pointer is over, and pointer events (Over, Press, Click) per entity |
 | `cells`   | F3  | Cell state changes (pressed, color) |
 | `boards`  | F4  | Board state changes (turn, pressed cell, winner) |
