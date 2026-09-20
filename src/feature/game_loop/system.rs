@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use super::component::{PendingMove, Turn, TurnOrder};
+use super::message::EndTurnRequested;
 use super::state::GameState;
 
 /// The steps of a turn, in the order they run each frame. **This enum is
@@ -14,9 +16,9 @@ use super::state::GameState;
 /// come from. They all run only while `GameState::Playing`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TurnPhase {
-    /// Requests are collected. Empty for now: the hyperboard still reads
-    /// the end-turn key itself, in `EndTurn` below. A later task moves that
-    /// reading here.
+    /// Requests are collected: the end-turn key is read here
+    /// (`request_end_turn_on_key`), and turns it into an `EndTurnRequested`
+    /// message for every match root in the world.
     Input,
     /// This frame's clicks are applied to the cells (cell). After this
     /// phase no cell changes because of a click until the next frame.
@@ -26,11 +28,9 @@ pub enum TurnPhase {
     /// One pressed cell in the whole match, recorded in `PendingMove`
     /// (hyperboard).
     OnePerTurn,
-    /// The turn advances, if a move is staged. For now this is the
-    /// hyperboard reading its own end-turn key and ending the turn
-    /// (`request_end_turn_on_key`, `end_requested_turns`); a later task
-    /// moves that here as the game loop's own systems, reading the request
-    /// collected in `Input` and `PendingMove` instead.
+    /// The turn advances, if a move is staged: `end_requested_turns` reads
+    /// the requests collected in `Input` and, for each one whose match has
+    /// a `PendingMove`, moves the turn to the next player.
     EndTurn,
     /// Boards end the turn: they lock the pressed cell and check whether
     /// they are full or won (board). Every cell change of the frame has
@@ -65,4 +65,36 @@ pub enum DrawPhase {
 /// `StateTransition`, never in the middle of `Update`.
 pub(super) fn request_restart_on_key(mut next_state: ResMut<NextState<GameState>>) {
     next_state.set(GameState::Setup);
+}
+
+/// Asks to end the turn of every match in the world.
+pub(super) fn request_end_turn_on_key(
+    roots: Query<Entity, With<Turn>>,
+    mut requests: MessageWriter<EndTurnRequested>,
+) {
+    for root in &roots {
+        requests.write(EndTurnRequested { root });
+    }
+}
+
+/// Ends the turn of each match that asked for it: the turn number goes up
+/// by one, and the next player gets the turn.
+///
+/// A turn can only end after the player staged a move: no passing. There is
+/// no "is the game over" check here — a finished match runs no phases at
+/// all.
+pub(super) fn end_requested_turns(
+    mut requests: MessageReader<EndTurnRequested>,
+    mut roots: Query<(&TurnOrder, &mut Turn, &PendingMove)>,
+) {
+    for request in requests.read() {
+        let Ok((order, mut turn, pending)) = roots.get_mut(request.root) else {
+            continue;
+        };
+        if pending.0.is_none() {
+            continue;
+        }
+        turn.number += 1;
+        turn.player = order.player_for_turn(turn.number);
+    }
 }

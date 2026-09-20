@@ -33,8 +33,10 @@ fn start_playing_puts_the_test_app_in_playing() {
 fn the_restart_key_goes_back_to_setup_and_despawns_the_match() {
     let mut app = test_app();
     start_playing(&mut app);
-    // Stand-in for the match: `game` marks the players and the hyperboard
-    // the same way.
+    // Stand-in for the match: unlike `game`, which despawns the players and
+    // the hyperboard with `DespawnWhen` (via `despawn_on_setup()`), this
+    // uses the plain `DespawnOnEnter` Bevy provides — good enough for this
+    // test, which only checks that a restart despawns the old match.
     let root = app.world_mut().spawn(DespawnOnEnter(GameState::Setup)).id();
 
     app.world_mut()
@@ -167,4 +169,79 @@ fn a_turn_brings_a_pending_move_with_it() {
         app.world().get::<PendingMove>(root),
         Some(&PendingMove(None))
     );
+}
+
+/// A match root: a turn for `player`, an order, and no staged move yet.
+fn spawn_root(app: &mut App, players: Vec<Entity>) -> Entity {
+    let order = TurnOrder::new(players);
+    let turn = order.first_turn();
+    app.world_mut().spawn((order, turn)).id()
+}
+
+fn turn(app: &App, root: Entity) -> Turn {
+    *app.world().get::<Turn>(root).unwrap()
+}
+
+#[test]
+fn a_turn_does_not_end_without_a_staged_move() {
+    let mut app = test_app();
+    start_playing(&mut app);
+    let a = app.world_mut().spawn_empty().id();
+    let b = app.world_mut().spawn_empty().id();
+    let root = spawn_root(&mut app, vec![a, b]);
+
+    app.world_mut().write_message(EndTurnRequested { root });
+    app.update();
+
+    assert_eq!(
+        turn(&app, root),
+        Turn {
+            number: 1,
+            player: a
+        }
+    );
+}
+
+#[test]
+fn a_staged_move_lets_the_turn_end_and_gives_it_to_the_next_player() {
+    let mut app = test_app();
+    start_playing(&mut app);
+    let a = app.world_mut().spawn_empty().id();
+    let b = app.world_mut().spawn_empty().id();
+    let root = spawn_root(&mut app, vec![a, b]);
+    let move_site = app.world_mut().spawn_empty().id();
+    app.world_mut()
+        .entity_mut(root)
+        .insert(PendingMove(Some(move_site)));
+
+    app.world_mut().write_message(EndTurnRequested { root });
+    app.update();
+
+    assert_eq!(
+        turn(&app, root),
+        Turn {
+            number: 2,
+            player: b
+        }
+    );
+}
+
+#[test]
+fn turns_do_not_end_once_the_match_is_finished() {
+    let mut app = test_app();
+    start_playing(&mut app);
+    let a = app.world_mut().spawn_empty().id();
+    let root = spawn_root(&mut app, vec![a]);
+    app.world_mut()
+        .entity_mut(root)
+        .insert(PendingMove(Some(a)));
+    app.world_mut()
+        .resource_mut::<NextState<GameState>>()
+        .set(GameState::Finished);
+    app.update();
+
+    app.world_mut().write_message(EndTurnRequested { root });
+    app.update();
+
+    assert_eq!(turn(&app, root).number, 1);
 }

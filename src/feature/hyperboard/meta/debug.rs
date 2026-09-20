@@ -29,10 +29,9 @@ fn log_hyperboard_changes(
     let symbol = |player: Entity| players.get(player).map_or('?', |p| p.symbol);
     for (entity, hyperboard, turn) in &hyperboards {
         info!(
-            "[hyperboard] Hyperboard {entity} turn={} player={:?} active_board={:?} next_board={:?} winner={:?}",
+            "[hyperboard] Hyperboard {entity} turn={} player={:?} next_board={:?} winner={:?}",
             turn.number,
             symbol(turn.player),
-            hyperboard.active_board,
             hyperboard.next_board,
             hyperboard.winner().map(symbol)
         );

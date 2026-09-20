@@ -3,65 +3,30 @@
 use bevy::prelude::*;
 
 use super::component::{Hyperboard, WinnerOverlay};
-use super::message::EndTurnRequested;
 use super::meta::constant::{HYPERBOARD_SIZE, OVERLAY_Z};
 use crate::feature::board::{
     Board, BoardControl, ClearTurnPress, GRID_SIZE, GridPosition, three_in_a_row,
 };
-use crate::feature::game_loop::{GameState, Turn, TurnOrder};
+use crate::feature::game_loop::{GameState, PendingMove, Turn};
 use crate::feature::player::{PlayerColor, PlayerMark};
 
-pub(super) fn request_end_turn_on_key(
-    hyperboards: Query<Entity, With<Hyperboard>>,
-    mut requests: MessageWriter<EndTurnRequested>,
-) {
-    for hyperboard in &hyperboards {
-        requests.write(EndTurnRequested { hyperboard });
-    }
-}
-
-/// Ends the turn of each hyperboard that asked for it: the turn number goes up
-/// by one, and the next player gets the turn.
-///
-/// Nothing happens if the game is won, or if no cell was pressed this turn
-/// (a player can't pass).
-pub(super) fn end_requested_turns(
-    mut requests: MessageReader<EndTurnRequested>,
-    mut hyperboards: Query<(&mut Hyperboard, &TurnOrder, &mut Turn)>,
-) {
-    for request in requests.read() {
-        let Ok((mut hyperboard, order, mut turn)) = hyperboards.get_mut(request.hyperboard) else {
-            continue;
-        };
-        if hyperboard.winner.is_some() || hyperboard.active_board.is_none() {
-            continue;
-        }
-        turn.number += 1;
-        turn.player = order.player_for_turn(turn.number);
-        hyperboard.played_board = hyperboard.active_board.take();
-    }
-}
-
-/// Enforces "one pressed cell per turn" in the whole hyperboard, the same way
-/// each board does it for its cells: when a second board gets a pressed cell
-/// during the turn, the previous board is told to clear its press.
+/// Enforces "one pressed cell per turn" in the whole hyperboard, the same
+/// way each board does it for its cells, and records the result in the game
+/// loop's `PendingMove`: without it, the loop refuses to end the turn.
 pub(super) fn keep_one_press_per_turn(
     mut commands: Commands,
-    mut hyperboards: Query<(&mut Hyperboard, &Children)>,
+    mut hyperboards: Query<(&mut PendingMove, &Children), With<Hyperboard>>,
     boards: Query<&Board>,
 ) {
-    // This runs in `TurnPhase::OnePerTurn`, before `EndTurn`, so the boards'
-    // presses always belong to the current turn.
-    for (mut hyperboard, children) in &mut hyperboards {
+    // This runs before `TurnPhase::EndTurn`, so the boards' presses always
+    // belong to the current turn.
+    for (mut pending, children) in &mut hyperboards {
         let boards_with_press: Vec<Entity> = children
             .iter()
             .filter(|&child| boards.get(child).is_ok_and(|b| b.current().is_some()))
             .collect();
 
-        let newest = match boards_with_press
-            .iter()
-            .find(|&&b| Some(b) != hyperboard.active_board)
-        {
+        let newest = match boards_with_press.iter().find(|&&b| Some(b) != pending.0) {
             Some(&newest) => {
                 for &other in boards_with_press.iter().filter(|&&b| b != newest) {
                     // "Calls go down": we tell the board, and the board
@@ -72,9 +37,7 @@ pub(super) fn keep_one_press_per_turn(
             }
             None => boards_with_press.first().copied(),
         };
-        if hyperboard.active_board != newest {
-            hyperboard.active_board = newest;
-        }
+        pending.set_if_neq(PendingMove(newest));
     }
 }
 
@@ -123,21 +86,24 @@ pub(super) fn check_for_winner(
 }
 
 /// After a turn ends, chooses where the next player must play: the board at
-/// the position of the cell just pressed, or any board if that one is won or
-/// full. Runs after the boards checked their wins, so a board won by the
-/// move itself already counts as won.
+/// the position of the cell just pressed, or any board if that one is won
+/// or full.
+///
+/// `PendingMove` still names the board played in the turn that just ended:
+/// the hyperboard only recomputes it next frame, in `TurnPhase::OnePerTurn`.
 pub(super) fn choose_next_board(
-    mut hyperboards: Query<(&mut Hyperboard, &Children)>,
+    mut hyperboards: Query<(&mut Hyperboard, Ref<Turn>, &PendingMove, &Children)>,
     boards: Query<(&Board, &GridPosition)>,
 ) {
-    for (mut hyperboard, children) in &mut hyperboards {
-        // `played_board` is only set by a turn that just ended. Read it first:
-        // `take()` would count as a write every frame, even with nothing to
-        // take, and mark the hyperboard as changed.
-        let Some(played) = hyperboard.played_board else {
+    for (mut hyperboard, turn, pending, children) in &mut hyperboards {
+        // `Ref<Turn>` gives read access plus change detection: the turn
+        // changed this frame means a turn just ended.
+        if !turn.is_changed() {
             continue;
+        }
+        let Some(played) = pending.0 else {
+            continue; // The first frame of a match: nothing was played yet.
         };
-        hyperboard.played_board = None;
         let Some(target) = boards
             .get(played)
             .ok()

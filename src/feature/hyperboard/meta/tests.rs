@@ -3,7 +3,9 @@ use super::super::component::{Hyperboard, WinnerOverlay};
 use super::super::*;
 use crate::feature::board::{Board, BoardControl, BoardPlugin, GRID_SIZE, GridPosition};
 use crate::feature::cell::{Cell, CellClicked, CellPlugin, Muted};
-use crate::feature::game_loop::{GameLoopPlugin, GameState, Turn, TurnOrder, start_playing};
+use crate::feature::game_loop::{
+    EndTurnRequested, GameLoopPlugin, GameState, PendingMove, Turn, TurnOrder, start_playing,
+};
 use crate::feature::player::{PlayerMark, PlayerPlugin, spawn_players};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -87,7 +89,7 @@ fn click(app: &mut App, cell: Entity) {
 /// Asks to end the turn the way the Space key does, then runs one frame.
 fn end_turn_now(app: &mut App, hyperboard: Entity) {
     app.world_mut()
-        .write_message(EndTurnRequested { hyperboard });
+        .write_message(EndTurnRequested { root: hyperboard });
     app.update();
 }
 
@@ -335,23 +337,35 @@ fn turns_stop_once_the_game_is_won() {
 }
 
 #[test]
-fn ending_the_turn_clears_the_active_board() {
+fn the_staged_move_survives_until_the_next_board_is_chosen() {
     let (mut app, hyperboard) = setup(vec![RED, BLUE]);
     let board = child_at(&mut app, hyperboard, 1, 1);
-    let cell = child_at(&mut app, board, 0, 0);
+    let cell = child_at(&mut app, board, 2, 0);
     click(&mut app, cell);
     assert_eq!(
-        app.world()
-            .get::<Hyperboard>(hyperboard)
-            .unwrap()
-            .active_board,
-        Some(board)
+        app.world().get::<PendingMove>(hyperboard),
+        Some(&PendingMove(Some(board)))
     );
 
     end_turn_now(&mut app, hyperboard);
     assert_eq!(turn(&app, hyperboard).number, 2);
-    let state = app.world().get::<Hyperboard>(hyperboard).unwrap();
-    assert_eq!(state.active_board, None);
+    // The staged move is still there in the frame the turn ended: that is
+    // how the next board was chosen, at the pressed cell's position.
+    assert_eq!(
+        app.world().get::<PendingMove>(hyperboard),
+        Some(&PendingMove(Some(board)))
+    );
+    assert_eq!(
+        next_board(&app, hyperboard),
+        Some(GridPosition { col: 2, row: 0 })
+    );
+
+    // Only one frame later, when the hyperboard recomputes it, is it gone.
+    app.update();
+    assert_eq!(
+        app.world().get::<PendingMove>(hyperboard),
+        Some(&PendingMove(None))
+    );
 }
 
 #[test]
@@ -422,7 +436,7 @@ fn click_board_win_and_game_win_resolve_in_the_same_frame() {
     app.world_mut()
         .write_message(CellClicked { cell: last_cell });
     app.world_mut()
-        .write_message(EndTurnRequested { hyperboard });
+        .write_message(EndTurnRequested { root: hyperboard });
     app.update();
 
     assert_eq!(

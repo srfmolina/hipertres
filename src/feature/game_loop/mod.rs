@@ -10,6 +10,7 @@
 // Every file of the feature is a private module. The `pub use` lines below
 // are the feature's public API: the only names other features can use.
 mod component;
+mod message;
 mod meta;
 mod state;
 mod system;
@@ -19,10 +20,8 @@ use bevy::prelude::*;
 // `StatesPlugin` is not in Bevy's prelude, unlike the rest of the state API.
 use bevy::state::app::StatesPlugin;
 
-// `PendingMove` isn't read by anything yet: a later task in this plan has
-// `board`/`hyperboard` write it and the loop's `TurnPhase::EndTurn` read it.
-#[allow(unused_imports)]
 pub use component::{PendingMove, Turn, TurnOrder};
+pub use message::EndTurnRequested;
 pub use state::GameState;
 pub use system::{DrawPhase, TurnPhase};
 
@@ -31,8 +30,8 @@ pub use system::{DrawPhase, TurnPhase};
 pub(crate) use meta::testing::start_playing;
 
 use crate::feature::player::PlayerSystems;
-use meta::constant::RESTART_KEY;
-use system::request_restart_on_key;
+use meta::constant::{END_TURN_KEY, RESTART_KEY};
+use system::{end_requested_turns, request_end_turn_on_key, request_restart_on_key};
 
 pub struct GameLoopPlugin;
 
@@ -53,6 +52,7 @@ impl Plugin for GameLoopPlugin {
         // `meta/debug.rs`: a no-op in the real binary, required in tests.
         app.init_resource::<ButtonInput<KeyCode>>();
         app.init_state::<GameState>()
+            .add_message::<EndTurnRequested>()
             // The order of the whole game, in one place.
             .configure_sets(
                 Update,
@@ -80,6 +80,15 @@ impl Plugin for GameLoopPlugin {
                 Update,
                 request_restart_on_key.run_if(
                     input_just_pressed(RESTART_KEY).and_then(not(in_state(GameState::Setup))),
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    request_end_turn_on_key
+                        .run_if(input_just_pressed(END_TURN_KEY))
+                        .in_set(TurnPhase::Input),
+                    end_requested_turns.in_set(TurnPhase::EndTurn),
                 ),
             );
     }

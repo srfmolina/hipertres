@@ -1,11 +1,6 @@
 //! Tunable values for the hyperboard.
 
-use bevy::prelude::*;
-
 use crate::feature::board::{BOARD_SIZE, GRID_SIZE};
-
-/// Key that ends the current turn.
-pub const END_TURN_KEY: KeyCode = KeyCode::Space;
 
 /// Boards are drawn at this fraction of their full size, so all 9 fit in the window.
 pub const BOARD_SCALE: f32 = 0.5;
