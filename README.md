@@ -7,7 +7,7 @@ A 2D board game written in [Rust](https://www.rust-lang.org/) with the
 > players, **o** (blue) and **x** (orange): press a cell, end the turn with
 > **Space** (you can't pass without pressing a cell). Pressed cells and won
 > boards show their player's color and symbol. Win three boards in a row to
-> win the game.
+> win the game. Press **R** at any time to restart the match.
 >
 > The first move is played in the center board. After that, the cell you press
 > sends the next player to the board at the same position; if that board is
@@ -56,11 +56,12 @@ src/
     ├── common/          Shared code that no feature owns (e.g. `mute` colors)
     ├── debug/           DebugPlugin: switchable diagnostics (see Debugging)
     ├── camera/          CameraPlugin: 2D camera and background color
+    ├── game_loop/       GameLoopPlugin: turns, turn order, the match's state, and the order of a frame
     ├── player/          PlayerPlugin: players (symbol, color) and their icons
     ├── cell/            CellPlugin: clickable cells that toggle pressed/unpressed
     ├── board/           BoardPlugin: 3×3 cells, one press per turn, three in a row
     ├── hyperboard/      HyperboardPlugin: 3×3 boards, players, turns, game winner
-    └── game/            GamePlugin: spawns the players and the hyperboard at startup
+    └── game/            GamePlugin: spawns the players and the hyperboard when a match starts
 ```
 
 Each game feature is a Bevy `Plugin` in its own folder under `src/feature/`,
@@ -75,10 +76,11 @@ to look. A feature only has the files it needs:
 | `resource.rs`  | Resources |
 | `message.rs`   | Messages (read with `MessageReader`) |
 | `event.rs`     | Events (handled by observers) |
+| `state.rs`     | Bevy states (`#[derive(States)]`, `State<T>`/`NextState<T>`, `OnEnter`/`OnExit`) |
 | `system.rs`    | Systems, observers, system sets, and helpers used only by them |
 | `spawn.rs`     | `spawn_*` functions that build entities (not systems) |
 | `rule.rs`      | Game rules as plain functions (not systems) |
-| `meta/`        | Code *about* the feature: `constant.rs` (tunable values), `debug.rs` (diagnostics on its debug channel), `tests.rs` |
+| `meta/`        | Code *about* the feature: `constant.rs` (tunable values), `debug.rs` (diagnostics on its debug channel), `testing.rs` (test helpers for other features), `tests.rs` |
 
 Every file is a private module. `mod.rs` re-exports with `pub use` the names
 other features may use, so the top of `mod.rs` is the feature's API. Items
@@ -86,7 +88,8 @@ only the feature itself uses are `pub(super)`.
 
 A type goes in the feature that **defines what it means**, even if other
 features use it: `ActivePlayer` is in `cell` because cells read it, although
-boards insert it. `common/` is only for code that no feature owns.
+boards insert it; `Turn` is in `game_loop`, even though the hyperboard is
+what changes it. `common/` is only for code that no feature owns.
 
 Small features (`camera`, `game`) stay in a single `mod.rs`.
 
@@ -95,12 +98,16 @@ To add a feature, create its folder and register its plugin in
 
 ### Order of a frame
 
-Every game step runs in a named Bevy system set, and the order between them
-is guaranteed: clicks are applied to cells, then the one-press-per-turn rules
-run, then the end of turn, then **boards** check their wins, then the
-**hyperboard** checks its win. The full list is in the docs of
-`src/feature/hyperboard/mod.rs`, and tests check that a click, a board win and
-a game win all resolve in the same frame.
+The `game_loop` feature owns the order of a turn as one chained `TurnPhase`
+(`Input, Mark, OnePerBoard, OnePerTurn, EndTurn, BoardResults, MatchResults,
+Control`), gated to run only while the match is being played: clicks are
+applied to cells, then the one-press-per-turn rules run, then the end of
+turn, then **boards** check their wins, then the **hyperboard** checks its
+win, chooses the next board and sets each board's `BoardControl`, then
+boards apply it. A separate `DrawPhase` (`State`, then `Icons`) draws the
+result in `PostUpdate`, and keeps running even once the match is finished.
+The full list is in `src/feature/game_loop/system.rs`, and tests check that
+a click, a board win and a game win all resolve in the same frame.
 
 ## Tests
 
@@ -125,6 +132,7 @@ are off by default.
 | `cells`   | F3  | Cell state changes (pressed, color) |
 | `boards`  | F4  | Board state changes (turn, pressed cell, winner) |
 | `hyperboard` | F5 | Hyperboard state changes (turn, player, active board, winner) |
+| `gameloop` | F6 | Turn changes and match state transitions (`Setup`/`Playing`/`Finished`) |
 
 Turn channels on at startup with `HIPERTRES_DEBUG`, or toggle them in game
 with their key:

@@ -36,11 +36,20 @@ fn log_turn_changes(
 
 /// Logs every state transition. `StateTransitionEvent` is a *message* in
 /// Bevy 0.19: it is read at the step we choose, like any other.
+///
+/// `exited`/`entered` are `Option<GameState>` (the very first transition
+/// has no `exited` side), but printing `Option`s directly would log every
+/// line as `Some(Setup) -> Some(Playing)`. That `Some(...)` is noise in a
+/// channel meant to be read, so we unwrap to the variant, falling back to
+/// `"none"` for the one transition that can lack a side.
 fn log_state_changes(mut transitions: MessageReader<StateTransitionEvent<GameState>>) {
+    let name =
+        |state: Option<GameState>| state.map_or("none".to_string(), |state| format!("{state:?}"));
     for transition in transitions.read() {
         info!(
-            "[gameloop] state {:?} -> {:?}",
-            transition.exited, transition.entered
+            "[gameloop] state {} -> {}",
+            name(transition.exited),
+            name(transition.entered)
         );
     }
 }
