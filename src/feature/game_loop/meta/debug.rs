@@ -25,8 +25,12 @@ fn log_turn_changes(
     // The player's symbol, for the log ('?' if the entity isn't a player).
     let symbol = |player: Entity| players.get(player).map_or('?', |p| p.symbol);
     for (entity, turn, pending) in &roots {
+        // Logged on `Changed<Turn>`, i.e. the frame a turn just ended:
+        // `pending` hasn't been touched since `TurnPhase::OnePerTurn`
+        // earlier in the same frame, so it's the move that just ended the
+        // *previous* turn, not one the new player has made yet.
         info!(
-            "[gameloop] Match {entity} turn={} player={} pending_move={:?}",
+            "[gameloop] Match {entity} turn={} player={} last_move={:?}",
             turn.number,
             symbol(turn.player),
             pending.0

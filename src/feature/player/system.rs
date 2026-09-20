@@ -10,8 +10,9 @@ use crate::feature::common::color::mute;
 /// The player's steps in `PostUpdate`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PlayerSystems {
-    /// Draws the icons of the `PlayerMark`s that changed. Systems that set a
-    /// `PlayerMark` in `PostUpdate` must run before it.
+    /// Draws the icons of the `PlayerMark`s that changed. This set exists so
+    /// whoever paces the frame can order it (the game loop nests it into
+    /// `DrawPhase::Icons`); `player` itself stays unaware of that loop.
     Marks,
 }
 

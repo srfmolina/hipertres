@@ -2,7 +2,7 @@
 use super::super::*;
 use super::constant::UNPRESSED_COLOR;
 use crate::feature::common::color::mute;
-use crate::feature::game_loop::{GameLoopPlugin, start_playing};
+use crate::feature::game_loop::{GameLoopPlugin, GameState, start_playing};
 use crate::feature::player::{Player, PlayerColor, PlayerMark, PlayerPlugin};
 
 const RED: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -177,4 +177,26 @@ fn pressed_cell_shows_its_player_icon() {
         .filter_map(|child| world.get::<Text2d>(child).map(|text| text.0.clone()))
         .collect();
     assert_eq!(texts, ["x"]);
+}
+
+/// `DrawPhase` is deliberately not gated on `GameState::Playing` (see
+/// `docs/05-the-game-loop.md` §3): a finished match must keep drawing.
+/// Muting a cell after the match is `Finished` still has to repaint it.
+#[test]
+fn muted_cell_is_still_drawn_after_the_match_is_finished() {
+    let mut app = test_app();
+    let red = spawn_player(&mut app, 'x', RED);
+    let (_, entity) = setup(&mut app, red);
+    click(&mut app, entity);
+    assert_eq!(color_of(&app, entity), RED);
+
+    app.world_mut()
+        .resource_mut::<NextState<GameState>>()
+        .set(GameState::Finished);
+    app.update();
+
+    app.world_mut().entity_mut(entity).insert(Muted(true));
+    app.update();
+    assert_eq!(color_of(&app, entity), mute(RED));
+    assert!(mark_of(&app, entity).muted);
 }

@@ -13,6 +13,10 @@ A 2D board game written in [Rust](https://www.rust-lang.org/) with the
 > sends the next player to the board at the same position; if that board is
 > won or full, they can play in any open board. Boards you can't play in are
 > drawn with muted colors.
+>
+> Draws aren't handled: if every board ends up won or full with nobody
+> having three in a row, the match just freezes in place — **R** is the
+> only way out.
 
 ## Requirements
 

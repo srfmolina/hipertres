@@ -18,7 +18,7 @@ pub enum DebugChannel {
     Cells,
     /// Board state changes (turn, pressed cell, winner).
     Boards,
-    /// Hyperboard state changes (turn, player, active board, winner).
+    /// Hyperboard state changes (next board, winner).
     Hyperboard,
     /// The game loop: turn changes and state transitions.
     GameLoop,

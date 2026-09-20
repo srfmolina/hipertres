@@ -16,9 +16,9 @@ use super::state::GameState;
 /// come from. They all run only while `GameState::Playing`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TurnPhase {
-    /// Requests are collected: the end-turn key is read here
-    /// (`request_end_turn_on_key`), and turns it into an `EndTurnRequested`
-    /// message for every match root in the world.
+    /// Requests are collected: `request_end_turn_on_key` reads the end-turn
+    /// key and turns it into an `EndTurnRequested` message for every match
+    /// root in the world.
     Input,
     /// This frame's clicks are applied to the cells (cell). After this
     /// phase no cell changes because of a click until the next frame.

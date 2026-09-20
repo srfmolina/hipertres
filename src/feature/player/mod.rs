@@ -5,7 +5,7 @@
 //! and turns store the player's `Entity`, not a copy of its color. Future
 //! roles or items will be new components on that same entity.
 //!
-//! This feature doesn't decide *whose turn* it is (that's the hyperboard's
+//! This feature doesn't decide *whose turn* it is (that's the game loop's
 //! rule). It only knows what a player is, creates players, and draws a
 //! player's icon on anything that carries a `PlayerMark`.
 
@@ -30,8 +30,9 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         // Icons are visuals, so they run in `PostUpdate`, after all game
-        // logic. Features that set a `PlayerMark` in `PostUpdate` run their
-        // system `.before(PlayerSystems::Marks)`.
+        // logic. `PlayerSystems::Marks` is only exposed here: whoever paces
+        // the frame orders it (the game loop nests it into
+        // `DrawPhase::Icons`). This feature stays unaware of that.
         app.add_systems(PostUpdate, draw_player_marks.in_set(PlayerSystems::Marks));
     }
 }

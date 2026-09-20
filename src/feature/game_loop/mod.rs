@@ -29,7 +29,7 @@ pub use system::{DrawPhase, TurnPhase};
 #[cfg(test)]
 pub(crate) use meta::testing::start_playing;
 
-use crate::feature::player::PlayerSystems;
+use super::player::PlayerSystems;
 use meta::constant::{END_TURN_KEY, RESTART_KEY};
 use system::{end_requested_turns, request_end_turn_on_key, request_restart_on_key};
 
