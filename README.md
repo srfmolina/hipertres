@@ -132,7 +132,7 @@ are off by default.
 | `picking` | F2  | What the pointer is over, and pointer events (Over, Press, Click) per entity |
 | `cells`   | F3  | Cell state changes (pressed, color) |
 | `boards`  | F4  | Board state changes (turn, pressed cell, winner) |
-| `hyperboard` | F5 | Hyperboard state changes (turn, player, active board, winner) |
+| `hyperboard` | F5 | Hyperboard state changes (next board, winner) |
 | `gameloop` | F6 | Turn changes and match state transitions (`Setup`/`Playing`/`Finished`) |
 
 Turn channels on at startup with `HIPERTRES_DEBUG`, or toggle them in game
