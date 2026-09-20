@@ -14,6 +14,7 @@ mod cell;
 mod common;
 mod debug;
 mod game;
+mod game_loop;
 mod hyperboard;
 mod player;
 
@@ -30,6 +31,9 @@ impl PluginGroup for FeaturePlugins {
             .add(debug::DebugPlugin)
             .add(camera::CameraPlugin)
             .add(player::PlayerPlugin)
+            // The loop defines the phases the features below put their
+            // systems in, so it is added before them.
+            .add(game_loop::GameLoopPlugin)
             .add(cell::CellPlugin)
             .add(board::BoardPlugin)
             .add(hyperboard::HyperboardPlugin)
